@@ -10,6 +10,7 @@ Goal: a new developer or writer can understand the project and run it locally.
 - [x] Add `.env.example`
 - [x] Add screenshots or a short demo GIF
 - [x] Confirm all public docs avoid private project names, personal names, and old working titles
+- [x] Add public author-trust research and positioning
 - [ ] Add a first-release checklist
 - [x] Add a short architecture overview
 - [x] Publish a private GitHub repository for release preparation
@@ -23,7 +24,7 @@ Goal: a Chinese long-form fiction writer can complete a small safe trial without
 - [x] Explain where local project files are created
 - [x] Explain model-provider setup and request boundaries
 - [x] Add a guided "create/open project" walkthrough
-- [ ] Add export and backup guidance
+- [x] Add manual export and backup guidance
 
 ## Phase 3: Trust And Control
 

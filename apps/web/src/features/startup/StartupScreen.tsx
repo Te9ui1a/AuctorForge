@@ -372,6 +372,21 @@ export function StartupScreen({
         </section>
       ) : null}
 
+      <section className="startup-trust-guide" aria-label="稿件安全与备份" data-entry-surface="trust-guide">
+        <div className="startup-trust-guide-heading">
+          <Badge variant="outline" className="w-fit rounded-full border-border/80 bg-background/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            稿件安全与备份
+          </Badge>
+          <p>先确认文件在哪里，再把真实稿件交给任何工作流。</p>
+        </div>
+        <ul className="startup-trust-guide-list">
+          <li>项目就是普通本地文件夹，可以整体复制备份。</li>
+          <li>大改前先复制整个项目文件夹，再继续实验。</li>
+          <li>未配置模型时，仍可浏览、编辑和检查本地项目。</li>
+          <li>只有使用模型能力时，才可能把相关文本交给你配置的服务商。</li>
+        </ul>
+      </section>
+
       {projectError ? <div className="startup-error" role="alert" aria-live="polite">{projectError}</div> : null}
 
       <Dialog

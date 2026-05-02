@@ -2031,6 +2031,43 @@ textarea {
   gap: 10px;
 }
 
+.startup-trust-guide {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+  gap: 18px;
+  align-items: start;
+  border: 1px solid var(--ui-entry-editorial-line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.018);
+  padding: 16px;
+}
+
+.startup-trust-guide-heading {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.startup-trust-guide-heading p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.startup-trust-guide-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 .startup-action-icon {
   width: 18px;
   height: 18px;
@@ -2267,6 +2304,14 @@ textarea {
 
   .startup-onboarding-actions {
     justify-content: flex-start;
+  }
+
+  .startup-trust-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .startup-trust-guide-list {
+    grid-template-columns: 1fr;
   }
 
   .startup-hero-layout {

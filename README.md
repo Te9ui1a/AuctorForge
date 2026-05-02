@@ -69,6 +69,8 @@ Writers' drafts, settings, outlines, and unpublished ideas can be commercially s
 
 As a rule of thumb: test the app with fictional sample content first, then verify where files are saved and what is sent to any configured model provider.
 
+For the product thinking behind this, see [What Writers Care About In AI Writing Tools](docs/author-trust-research.md). It summarizes common author concerns around privacy, copyright, control, consistency, and workflow fit, then shows how AuctorForge is responding.
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the open-source readiness plan and product direction.

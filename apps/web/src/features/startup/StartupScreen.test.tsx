@@ -110,6 +110,19 @@ describe('StartupScreen', () => {
     expect(screen.getByRole('button', { name: '试用示例项目' })).toBeInTheDocument();
   });
 
+  it('shows manuscript safety and backup guidance without blocking launch actions', () => {
+    render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
+
+    const backupGuidance = screen.getByRole('region', { name: '稿件安全与备份' });
+    expect(within(backupGuidance).getByText('项目就是普通本地文件夹，可以整体复制备份。')).toBeInTheDocument();
+    expect(within(backupGuidance).getByText('大改前先复制整个项目文件夹，再继续实验。')).toBeInTheDocument();
+    expect(within(backupGuidance).getByText('未配置模型时，仍可浏览、编辑和检查本地项目。')).toBeInTheDocument();
+    expect(within(backupGuidance).getByText('只有使用模型能力时，才可能把相关文本交给你配置的服务商。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '开始一个新故事' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '试用示例项目' })).toBeInTheDocument();
+  });
+
   it('lets writers dismiss first-run guidance while keeping launcher actions available', () => {
     render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
 

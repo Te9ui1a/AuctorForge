@@ -12,6 +12,8 @@ AuctorForge is a local-first creative workbench for Chinese long-form fiction wr
 - Launcher and workbench surfaces under the AuctorForge brand
 - First-run guidance with a dismissible onboarding module
 - Built-in fictional Lantern Road sample project for safe evaluation
+- Public author-trust research page that maps AI writing tool concerns to AuctorForge choices
+- Startup manuscript-safety and manual backup guidance
 - Project file navigation, document editing, chat, workflow progress, and model settings
 - OpenSpec change records for behavior-changing product work
 - Public documentation for setup, architecture, privacy, contribution, and release readiness
@@ -42,5 +44,5 @@ pnpm test:e2e
 ## Known Gaps Before Public Release
 
 - Add screenshots or a short demo GIF.
-- Run a full verification pass after the onboarding change.
+- Build stronger export and backup controls beyond current manual guidance.
 - Decide the first release tag plan.
