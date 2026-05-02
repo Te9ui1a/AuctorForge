@@ -37,6 +37,7 @@ export type ChatRequest = {
   activeDocumentPath?: string;
   attachments?: ChatAttachment[];
   chatMode?: ChatMode;
+  proposalAction?: ProposalAction;
 };
 
 export type ChatErrorPayload = {
@@ -72,12 +73,34 @@ export type PendingDecision = {
 };
 
 export type PendingProposal = {
+  id?: string;
+  version?: number;
+  status?: 'pending' | 'superseded' | 'approved' | 'discarded' | 'invalidated';
+  title?: string;
+  kind?: 'single-file' | 'multi-file';
   reply?: string;
+  transitionPreview?: {
+    afterApproveLabel: string;
+    nextStepTitle?: string;
+    nextActionLabel?: string;
+  };
   proposedWrites: Array<{
     path: string;
     content?: string;
+    label?: string;
   }>;
 };
+
+export type ProposalAction =
+  | {
+      type: 'approve' | 'discard';
+      proposalId: string;
+    }
+  | {
+      type: 'revise';
+      proposalId: string;
+      instructions: string;
+    };
 
 export type WorkflowProgressSummary = {
   phase: string;

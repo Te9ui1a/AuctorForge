@@ -1,10 +1,11 @@
 import type {
   ChatAttachment,
   ChatMode,
+  ProposalAction,
   SessionResponse,
 } from 'shared';
 
-export type { ChatAttachment, ChatMode };
+export type { ChatAttachment, ChatMode, ProposalAction };
 
 export type ChatTurnBody = {
   message: string;
@@ -13,6 +14,7 @@ export type ChatTurnBody = {
   chatMode?: ChatMode;
   activeDocumentPath?: string;
   attachments?: ChatAttachment[];
+  proposalAction?: ProposalAction;
 };
 
 export function normalizeChatMode(value: unknown): ChatMode {

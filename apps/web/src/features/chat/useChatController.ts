@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ChatSessionRequest,
   ProgressResponse,
+  ProposalAction,
   SessionResponse,
   WriteTargetHint,
 } from '../workflow/types';
@@ -167,6 +168,60 @@ export function useChatController({
     }
   }
 
+  async function submitProposalAction(action: ProposalAction) {
+    if (chatStream.isStreaming || isSendingChat) {
+      return;
+    }
+
+    const message = action.type === 'approve'
+      ? '确认写入当前提案'
+      : action.type === 'discard'
+        ? '放弃当前提案'
+        : action.instructions;
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message,
+    };
+    const baseMessages = messages;
+
+    setMessages((current) => [...current, userMessage]);
+    setChatInput('');
+
+    try {
+      setIsSendingChat(true);
+      thinkingStartTimeRef.current = Date.now();
+      const data = await chatStream.send(
+        message,
+        action.type === 'approve',
+        [],
+        documentPath || undefined,
+        'write',
+        action,
+      );
+      const duration = Date.now() - thinkingStartTimeRef.current;
+      const assistantMessage: ChatMessage = { role: 'assistant', content: data.reply, thinkingDuration: duration };
+
+      setMessages((current) => [...current, assistantMessage]);
+      persistChatMessages([...baseMessages, userMessage, assistantMessage]).catch(() => {});
+      setUiError('');
+      setChatError('');
+      setChatErrorPayload(null);
+      await refreshSession({ preserveDocument: true });
+    } catch (error) {
+      const errorMessage = error instanceof ChatRequestError ? error.message : '聊天失败，请稍后重试。';
+      if (error instanceof ChatRequestError) {
+        setUiError('');
+      } else {
+        setUiError(errorMessage);
+      }
+      setChatError(errorMessage);
+      setChatErrorPayload(error instanceof ChatRequestError ? error.payload ?? null : null);
+      setMessages(baseMessages);
+    } finally {
+      setIsSendingChat(false);
+    }
+  }
+
   async function handleChatSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (chatInput.trim().length === 0) {
@@ -240,6 +295,9 @@ export function useChatController({
     handleChatSubmit,
     handleContinueDiscussion,
     handlePickFiles,
+    handleProposalAction: (action: ProposalAction) => {
+      void submitProposalAction(action);
+    },
     handleQuickMode,
     handleRemoveAttachment,
     handleRetryChat,

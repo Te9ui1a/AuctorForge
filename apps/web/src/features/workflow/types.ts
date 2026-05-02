@@ -15,6 +15,7 @@ export type {
   FileTreeGroup,
   PendingDecision,
   PendingProposal,
+  ProposalAction,
   ProgressResponse,
   SessionResponse,
   WriteTargetHint,

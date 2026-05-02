@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import type { ChatAttachment, ChatErrorPayload, ChatMode, ChatRequest, ChatResponse } from '../workflow/types';
+import type { ChatAttachment, ChatErrorPayload, ChatMode, ChatRequest, ChatResponse, ProposalAction } from '../workflow/types';
 import { buildProjectScopedHeaders, readApiError } from '../api/apiClient';
 
 type StreamResult = ChatResponse;
@@ -44,8 +44,8 @@ function createChatRequestId() {
   return `chat-turn-${randomId}`;
 }
 
-function buildRequestBody(message: string, approved: boolean, attachments: ChatAttachment[], activeDocumentPath: string | undefined, chatMode: ChatMode | undefined, requestId: string): ChatRequest {
-  return { message, approved, requestId, attachments, activeDocumentPath, chatMode };
+function buildRequestBody(message: string, approved: boolean, attachments: ChatAttachment[], activeDocumentPath: string | undefined, chatMode: ChatMode | undefined, requestId: string, proposalAction?: ProposalAction): ChatRequest {
+  return { message, approved, requestId, attachments, activeDocumentPath, chatMode, proposalAction };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -115,11 +115,11 @@ async function withRequestTimeout<T>(
 export function useChatStream({ activeProjectId, onAssistantStart, onAssistantChunk, requestTimeoutMs = DEFAULT_CHAT_REQUEST_TIMEOUT_MS, streamEnabled }: UseChatStreamOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
 
-  const send = useCallback(async (message: string, approved: boolean, attachments: ChatAttachment[], activeDocumentPath?: string, chatMode?: ChatMode): Promise<StreamResult> => {
+  const send = useCallback(async (message: string, approved: boolean, attachments: ChatAttachment[], activeDocumentPath?: string, chatMode?: ChatMode, proposalAction?: ProposalAction): Promise<StreamResult> => {
     const requestId = createChatRequestId();
 
     if (!streamEnabled) {
-      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
+      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId, proposalAction);
       const response = await fetchWithTimeout('/api/chat', {
         method: 'POST',
         headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),
@@ -134,7 +134,7 @@ export function useChatStream({ activeProjectId, onAssistantStart, onAssistantCh
     let sawStreamData = false;
 
     try {
-      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
+      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId, proposalAction);
       const streamTimeout = createRequestTimeout(requestTimeoutMs);
 
       try {
@@ -226,7 +226,7 @@ export function useChatStream({ activeProjectId, onAssistantStart, onAssistantCh
         throw error;
       }
 
-      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
+      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId, proposalAction);
       const response = await fetchWithTimeout('/api/chat', {
         method: 'POST',
         headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),

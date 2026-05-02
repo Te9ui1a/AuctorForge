@@ -157,4 +157,27 @@ describe('deriveChatTurnStrategy', () => {
       hintText: '将确认当前写入提案',
     });
   });
+
+  it('treats natural approval wording as proposal approval when a proposal is pending', () => {
+    expect(
+      deriveChatTurnStrategy({
+        message: '满意，确认',
+        session: {
+          currentModule: 'define',
+          currentStepId: 'define-direction',
+          currentSubstepId: undefined,
+          waitingForApproval: true,
+        },
+        writeTargetHint: {
+          ...defaultWriteTargetHint,
+          hasPendingProposal: true,
+        },
+      }),
+    ).toMatchObject({
+      requestMode: 'write',
+      treatAsApproval: true,
+      showsWriteTargetHint: true,
+      hintText: '将确认当前写入提案',
+    });
+  });
 });
