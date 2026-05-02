@@ -91,6 +91,20 @@ describe('ModelSettingsPanel', () => {
     expect(screen.getByLabelText('Temperature')).toBeInTheDocument();
   });
 
+  it('bounds the settings dialog to the viewport and makes the settings body scrollable', () => {
+    const { container } = renderPanel();
+
+    const settingsDialog = screen.getByRole('dialog', { name: '模型配置' });
+    const settingsForm = settingsDialog.querySelector('form');
+    const scrollRegion = container.querySelector('[data-settings-scroll-region="model-settings-body"]');
+
+    expect(settingsDialog).toHaveClass('grid');
+    expect(settingsDialog.className).toContain('h-[min(820px,calc(100vh-48px))]');
+    expect(settingsDialog.className).not.toContain('max-h-[min(820px,calc(100vh-48px))]');
+    expect(settingsForm).toHaveClass('grid-rows-[minmax(0,1fr)_auto]');
+    expect(scrollRegion).toHaveClass('min-h-0', 'overflow-y-auto');
+  });
+
   it('updates only the active model and submits the full settings store', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
 

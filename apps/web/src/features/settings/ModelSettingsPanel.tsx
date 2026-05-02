@@ -83,7 +83,7 @@ export function ModelSettingsPanel({
   const isFailureStatus = statusMessage.includes('失败');
 
   const panelSurfaceClassName =
-    'w-[min(860px,100%)] max-h-[min(820px,calc(100vh-48px))] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--ui-overlay-border)] bg-[var(--ui-overlay-surface)] text-[var(--ui-overlay-foreground)] shadow-[var(--ui-overlay-shadow)]';
+    'grid h-[min(820px,calc(100vh-48px))] w-[min(860px,100%)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--ui-overlay-border)] bg-[var(--ui-overlay-surface)] text-[var(--ui-overlay-foreground)] shadow-[var(--ui-overlay-shadow)]';
 
   const cardClassName =
     'rounded-[var(--radius-md)] border border-border/55 bg-background/24 p-4 shadow-none';
@@ -127,8 +127,13 @@ export function ModelSettingsPanel({
           </Button>
         </DialogHeader>
 
-        <form className="grid h-full min-h-0 grid-rows-[1fr_auto]" onSubmit={handleSubmit}>
-          <Tabs value={draft.activeModelId} onValueChange={updateActiveModel} className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6">
+        <form className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]" onSubmit={handleSubmit}>
+          <Tabs
+            value={draft.activeModelId}
+            onValueChange={updateActiveModel}
+            className="min-h-0 overflow-y-auto px-5 py-5 sm:px-6"
+            data-settings-scroll-region="model-settings-body"
+          >
             <div className="grid min-h-0 grid-cols-[minmax(220px,240px)_minmax(0,1fr)] items-start gap-4" data-settings-grid="two-column">
               <div className="grid min-w-0 gap-4">
                 <div className={cn(cardClassName, 'gap-4 p-3')}>
