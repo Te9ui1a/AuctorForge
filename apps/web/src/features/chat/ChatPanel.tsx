@@ -258,7 +258,7 @@ export function ChatPanel({
                 <strong className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-assistant-caption)]">
                   {message.role === 'assistant' ? '创作助手' : '你'}
                 </strong>
-                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{message.content}</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground" data-chat-surface="message-content">{message.content}</p>
                 {message.attachments?.length ? (
                   <div className="flex flex-wrap gap-2">
                     {message.attachments.map((attachment) => (

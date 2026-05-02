@@ -598,6 +598,25 @@ describe('ChatPanel', () => {
     expect(send).not.toHaveTextContent('发送');
   });
 
+  it('keeps the composer compact when there is no advisory text', () => {
+    renderChatPanel({
+      chatInput: '继续讨论',
+      turnStrategy: {
+        requestMode: 'auto',
+        hintText: null,
+        treatAsApproval: false,
+        showsWriteTargetHint: false,
+      },
+    });
+
+    expect(screen.queryByText('交给创作助手判断')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-chat-surface="composer-advisory"]')).not.toBeInTheDocument();
+    expect(readRuleProperty("[data-ui-surface='chat-panel'] [data-chat-surface='composer']", 'row-gap')).toBe('8px');
+    expect(readRuleProperty("[data-ui-surface='chat-panel'] [data-chat-surface='composer-shell']", 'padding')).toBe(
+      '8px var(--ui-assistant-log-padding-inline) 12px',
+    );
+  });
+
   it('keeps the attachment trigger visible in compact form and hides the strip until attachments exist', () => {
     renderChatPanel();
 
@@ -641,6 +660,23 @@ describe('ChatPanel', () => {
     expect(restingHeight).toBe(resolvedContractMinHeightValue);
     expect(grownHeight).toBeGreaterThan(restingHeight);
     expect(grownHeight).toBeGreaterThan(resolvedContractMinHeightValue);
+  });
+
+  it('uses the same compact type size for composer input and message body text', () => {
+    const inputSelector = "[data-ui-surface='chat-panel'] [data-chat-surface='composer-shell'] [data-chat-surface='input']";
+    const messageSelector = "[data-ui-surface='chat-panel'] [data-chat-surface='message-content']";
+
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这一行是对话正文' }],
+      chatInput: '输入框文字',
+    });
+
+    expect(screen.getByLabelText('聊天输入框')).toHaveAttribute('data-chat-surface', 'input');
+    expect(document.querySelector('[data-chat-surface="message-content"]')).toHaveTextContent('这一行是对话正文');
+    expect(readRuleProperty(inputSelector, 'font-size')).toBe('14px');
+    expect(readRuleProperty(inputSelector, 'line-height')).toBe('24px');
+    expect(readRuleProperty(messageSelector, 'font-size')).toBe('14px');
+    expect(readRuleProperty(messageSelector, 'line-height')).toBe('24px');
   });
 
   it('still exposes recovery controls when a chat error is present', () => {

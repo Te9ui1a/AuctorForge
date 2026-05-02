@@ -40,7 +40,7 @@ export function deriveChatTurnStrategy({ forceDiscussion = false, message, sessi
   }
 
   return {
-    hintText: trimmedMessage.length > 0 || writeTargetHint.hasPendingProposal ? '交给创作助手判断' : null,
+    hintText: null,
     requestMode: 'auto',
     showsWriteTargetHint: false,
     treatAsApproval: false,

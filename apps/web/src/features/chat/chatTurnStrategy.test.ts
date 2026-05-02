@@ -26,7 +26,7 @@ describe('deriveChatTurnStrategy', () => {
       requestMode: 'auto',
       treatAsApproval: false,
       showsWriteTargetHint: false,
-      hintText: '交给创作助手判断',
+      hintText: null,
     });
   });
 
@@ -68,7 +68,7 @@ describe('deriveChatTurnStrategy', () => {
       requestMode: 'auto',
       treatAsApproval: false,
       showsWriteTargetHint: false,
-      hintText: '交给创作助手判断',
+      hintText: null,
     });
   });
 
