@@ -1,0 +1,46 @@
+name: Workflow Or Template Proposal
+description: Propose a reusable writing workflow, prompt, or review template
+title: "[Template]: "
+labels: ["workflow-template"]
+body:
+  - type: input
+    id: use-case
+    attributes:
+      label: Use case
+      placeholder: "Example: chapter hook review, character motivation check, outline expansion"
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Writing stage
+      options:
+        - Project setup
+        - Characters
+        - Worldbuilding
+        - Outline
+        - Drafting
+        - Revision
+        - Continuity review
+        - Export or backup
+        - Other
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Required inputs
+      placeholder: "Example: current chapter summary, protagonist goal, known foreshadowing"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Expected output
+    validations:
+      required: true
+  - type: textarea
+    id: template
+    attributes:
+      label: Draft template
+      description: Do not include private manuscript text or unauthorized copyrighted material.
+    validations:
+      required: true

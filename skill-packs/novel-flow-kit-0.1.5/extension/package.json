@@ -1,0 +1,37 @@
+{
+  "name": "novel-flow-kit",
+  "displayName": "长篇小说流程 Kit",
+  "description": "在项目中初始化长篇小说创作流程与技能包。",
+  "version": "0.1.5",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "project.initNovelKit",
+        "title": "长篇小说: 初始化长篇小说流程 Kit"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "sync-assets": "rsync -a --delete \"../skills/longformnovel/\" \"./assets/longformnovel/\"",
+    "release": "npm run sync-assets && npm run compile && npx --yes @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^16.11.7",
+    "typescript": "^5.1.3"
+  }
+}

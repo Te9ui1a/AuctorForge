@@ -1,0 +1,484 @@
+:root {
+  --font-sans: 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  --motion-duration-fast: 120ms;
+  --motion-duration-normal: 180ms;
+  --motion-duration-slow: 260ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --ui-background: #0f1012;
+  --ui-foreground: #eee9e0;
+  --ui-card: #202329;
+  --ui-card-foreground: #ece7de;
+  --ui-popover: #202329;
+  --ui-popover-foreground: #ece7de;
+  --ui-primary: #6f7f8f;
+  --ui-primary-foreground: #f5f1e8;
+  --ui-secondary: rgba(255, 255, 255, 0.03);
+  --ui-secondary-foreground: #d9d2c7;
+  --ui-muted: rgba(255, 255, 255, 0.024);
+  --ui-muted-foreground: #a29b90;
+  --ui-accent: rgba(197, 176, 144, 0.16);
+  --ui-accent-foreground: #f3ede4;
+  --ui-destructive: #8f5551;
+  --ui-destructive-foreground: #fff0ee;
+  --ui-border: rgba(176, 184, 194, 0.12);
+  --ui-input: rgba(176, 184, 194, 0.16);
+  --ui-ring: rgba(111, 127, 143, 0.42);
+
+  --ui-control-primary-surface: rgba(111, 127, 143, 0.22);
+  --ui-control-primary-border: rgba(111, 127, 143, 0.38);
+  --ui-control-primary-foreground: var(--ui-primary-foreground);
+  --ui-control-primary-hover-surface: rgba(111, 127, 143, 0.3);
+  --ui-control-supporting-surface: rgba(255, 255, 255, 0.03);
+  --ui-control-supporting-foreground: var(--ui-secondary-foreground);
+  --ui-control-supporting-border: rgba(176, 184, 194, 0.14);
+  --ui-control-supporting-hover-border: rgba(176, 184, 194, 0.23);
+  --ui-control-supporting-hover-surface: rgba(255, 255, 255, 0.048);
+  --ui-control-supporting-hover-foreground: var(--ui-foreground);
+  --ui-control-quiet-foreground: rgba(217, 210, 199, 0.8);
+  --ui-control-quiet-hover-surface: rgba(255, 255, 255, 0.022);
+  --ui-control-quiet-hover-foreground: var(--ui-foreground);
+  --ui-control-link-foreground: rgba(217, 210, 199, 0.78);
+  --ui-control-link-hover-foreground: var(--ui-foreground);
+  --ui-control-destructive-surface: rgba(143, 85, 81, 0.14);
+  --ui-control-destructive-border: rgba(173, 105, 98, 0.26);
+  --ui-control-destructive-foreground: var(--ui-destructive-foreground);
+  --ui-control-destructive-hover-surface: rgba(143, 85, 81, 0.22);
+  --ui-badge-dominant-surface: rgba(111, 127, 143, 0.16);
+  --ui-badge-dominant-border: rgba(111, 127, 143, 0.28);
+  --ui-badge-dominant-foreground: var(--ui-primary-foreground);
+  --ui-badge-supporting-surface: rgba(255, 255, 255, 0.03);
+  --ui-badge-supporting-foreground: var(--ui-secondary-foreground);
+  --ui-badge-supporting-border: rgba(176, 184, 194, 0.12);
+  --ui-badge-outline-border: rgba(176, 184, 194, 0.16);
+  --ui-badge-outline-foreground: var(--ui-foreground);
+  --ui-badge-muted-surface: rgba(255, 255, 255, 0.022);
+  --ui-badge-muted-border: rgba(176, 184, 194, 0.08);
+  --ui-badge-muted-foreground: var(--ui-muted-foreground);
+  --ui-intent-supporting-foreground: rgba(176, 184, 194, 0.74);
+  --ui-intent-supporting-icon: rgba(176, 184, 194, 0.54);
+
+  --ui-entry-bg: #0f1012;
+  --ui-entry-surface: #17191d;
+  --ui-entry-border: rgba(176, 184, 194, 0.1);
+  --ui-entry-shadow: none;
+  --ui-entry-foreground: #ece7de;
+  --ui-entry-hero-foreground: #f7f8fc;
+  --ui-entry-proof-surface:
+    radial-gradient(circle at top right, rgba(201, 100, 66, 0.18), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(189, 170, 140, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(245, 238, 226, 0.985), rgba(234, 223, 204, 0.94));
+  --ui-entry-proof-border: rgba(201, 100, 66, 0.22);
+  --ui-entry-proof-shadow: 0 18px 42px rgba(8, 12, 20, 0.2);
+  --ui-entry-proof-foreground: #4d4032;
+  --ui-entry-supporting-surface: linear-gradient(180deg, rgba(32, 35, 41, 0.82), rgba(23, 25, 29, 0.78));
+  --ui-entry-supporting-border: rgba(176, 184, 194, 0.1);
+  --ui-entry-supporting-shadow: none;
+  --ui-entry-continuation-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.014));
+  --ui-entry-continuation-border: rgba(176, 184, 194, 0.12);
+  --ui-entry-tertiary-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.01));
+  --ui-entry-tertiary-border: rgba(176, 184, 194, 0.08);
+  --ui-entry-editorial-line: rgba(176, 184, 194, 0.1);
+
+  --ui-shell-bg: #17191d;
+  --ui-shell-surface: #202329;
+  --ui-shell-surface-elevated: #252932;
+  --ui-shell-border: rgba(176, 184, 194, 0.12);
+  --ui-shell-border-strong: rgba(176, 184, 194, 0.2);
+  --ui-shell-shadow: none;
+  --ui-shell-foreground: #ece7de;
+  --ui-shell-divider: rgba(176, 184, 194, 0.09);
+  --ui-shell-frame-border: rgba(176, 184, 194, 0.055);
+  --ui-shell-frame-shadow: none;
+  --ui-shell-cohesion-line: rgba(176, 184, 194, 0.1);
+  --ui-shell-cohesion-glow: rgba(111, 127, 143, 0.08);
+  --ui-shell-cohesion-highlight: rgba(255, 255, 255, 0.02);
+  --ui-workbench-shell-surface:
+    radial-gradient(circle at 14% 0%, rgba(111, 127, 143, 0.06), transparent 26%),
+    radial-gradient(circle at 82% 0%, rgba(176, 184, 194, 0.028), transparent 24%),
+    linear-gradient(180deg, rgba(23, 25, 29, 0.985), rgba(15, 16, 18, 1));
+  --ui-workbench-grid-gap: 12px;
+  --ui-workbench-context-rail-width: clamp(300px, 25vw, 392px);
+  --ui-workbench-context-rail-offset: 0;
+  --ui-workbench-context-rail-shadow: 0 18px 42px rgba(4, 6, 12, 0.24);
+  --ui-workbench-context-rail-border: rgba(176, 184, 194, 0.08);
+  --ui-workbench-creative-area-min: 85%;
+  --ui-workbench-support-area-max: 15%;
+  --ui-workbench-support-rail-collapsed-width: 92px;
+  --ui-workbench-file-rail-expanded-column: minmax(92px, 0.68fr);
+  --ui-workbench-workflow-rail-expanded-column: minmax(204px, 0.62fr);
+  --ui-workbench-top-bar-block-size: calc(56px + 16px);
+  --ui-workbench-shell-top-padding: 8px;
+  --ui-top-bar-surface:
+    radial-gradient(circle at 16% 0%, rgba(111, 127, 143, 0.055), transparent 30%),
+    linear-gradient(180deg, rgba(32, 35, 41, 0.5), rgba(23, 25, 29, 0.18));
+  --ui-top-bar-border: rgba(176, 184, 194, 0.055);
+  --ui-top-bar-shadow: none;
+  --ui-top-bar-divider: rgba(176, 184, 194, 0.07);
+  --ui-top-bar-button-surface: rgba(255, 255, 255, 0.02);
+  --ui-top-bar-button-border: rgba(176, 184, 194, 0.075);
+  --ui-top-bar-button-foreground: rgba(227, 221, 211, 0.68);
+  --ui-top-bar-button-hover-surface: rgba(255, 255, 255, 0.028);
+  --ui-top-bar-button-hover-border: rgba(176, 184, 194, 0.14);
+  --ui-top-bar-button-hover-foreground: #f4efe7;
+  --ui-top-bar-chip-surface: rgba(255, 255, 255, 0.01);
+  --ui-top-bar-chip-border: rgba(176, 184, 194, 0.06);
+  --ui-top-bar-chip-foreground: rgba(230, 224, 214, 0.56);
+  --ui-file-rail-surface:
+    radial-gradient(circle at top left, rgba(111, 127, 143, 0.03), transparent 32%),
+    linear-gradient(180deg, rgba(17, 18, 21, 0.58), rgba(11, 12, 15, 0.36));
+  --ui-file-rail-border: rgba(176, 184, 194, 0.05);
+  --ui-file-rail-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.014), inset 1px 0 0 rgba(176, 184, 194, 0.02);
+  --ui-file-rail-foreground: #ddd6cb;
+  --ui-file-rail-divider: rgba(176, 184, 194, 0.07);
+  --ui-file-rail-accent: rgba(111, 127, 143, 0.12);
+  --ui-file-rail-active: rgba(111, 127, 143, 0.08);
+  --ui-file-rail-caption: rgba(176, 184, 194, 0.46);
+  --ui-file-rail-helper: rgba(226, 219, 209, 0.58);
+  --ui-file-rail-item-foreground: rgba(226, 219, 209, 0.74);
+  --ui-file-rail-item-hover-surface: rgba(255, 255, 255, 0.018);
+  --ui-file-rail-item-hover-border: rgba(176, 184, 194, 0.08);
+  --ui-file-rail-item-active-surface:
+    linear-gradient(90deg, rgba(111, 127, 143, 0.12), rgba(255, 255, 255, 0.014));
+  --ui-file-rail-item-active-border: rgba(176, 184, 194, 0.12);
+  --ui-file-rail-item-active-marker: rgba(154, 169, 184, 0.86);
+  --ui-file-rail-folder: rgba(230, 223, 213, 0.72);
+  --ui-file-rail-tree-line: rgba(176, 184, 194, 0.08);
+  --ui-file-rail-marker: rgba(154, 169, 184, 0.86);
+  --ui-file-rail-control-marker: rgba(198, 214, 246, 0.84);
+  --ui-file-rail-compact-surface: rgba(255, 255, 255, 0.016);
+  --ui-file-rail-compact-active-surface: rgba(111, 127, 143, 0.1);
+  --ui-file-rail-compact-active-border: rgba(176, 184, 194, 0.12);
+  --ui-file-rail-support-control-surface: rgba(255, 255, 255, 0.012);
+  --ui-file-rail-support-control-border: rgba(176, 184, 194, 0.04);
+  --ui-file-rail-support-control-foreground: rgba(176, 184, 194, 0.52);
+  --ui-file-rail-support-control-hover-surface: rgba(255, 255, 255, 0.026);
+  --ui-file-rail-support-control-hover-border: rgba(176, 184, 194, 0.09);
+  --ui-file-rail-support-control-hover-foreground: var(--ui-file-rail-foreground);
+
+  --ui-workflow-rail-surface:
+    radial-gradient(circle at top right, rgba(111, 127, 143, 0.032), transparent 28%),
+    linear-gradient(180deg, rgba(18, 19, 23, 0.46), rgba(12, 13, 16, 0.24));
+  --ui-workflow-rail-border: rgba(176, 184, 194, 0.045);
+  --ui-workflow-rail-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.012);
+  --ui-workflow-rail-foreground: #ded7cc;
+  --ui-workflow-rail-divider: rgba(176, 184, 194, 0.065);
+  --ui-workflow-rail-accent: rgba(111, 127, 143, 0.08);
+  --ui-workflow-rail-caption: rgba(176, 184, 194, 0.5);
+  --ui-workflow-rail-helper: rgba(227, 221, 211, 0.62);
+  --ui-workflow-rail-proposal: rgba(151, 142, 126, 0.09);
+  --ui-workflow-rail-decision: rgba(245, 158, 11, 0.1);
+  --ui-workflow-control-surface: rgba(255, 255, 255, 0.014);
+  --ui-workflow-control-border: rgba(176, 184, 194, 0.055);
+  --ui-workflow-control-foreground: rgba(227, 221, 211, 0.66);
+  --ui-workflow-control-hover-surface: rgba(255, 255, 255, 0.028);
+  --ui-workflow-control-hover-border: rgba(176, 184, 194, 0.11);
+  --ui-workflow-control-hover-foreground: var(--ui-foreground);
+  --ui-workflow-status-surface: rgba(255, 255, 255, 0.01);
+  --ui-workflow-status-border: rgba(176, 184, 194, 0.055);
+  --ui-workflow-status-foreground: rgba(227, 221, 211, 0.64);
+  --ui-workflow-guide-surface: rgba(255, 255, 255, 0.006);
+  --ui-workflow-guide-border: rgba(176, 184, 194, 0.038);
+  --ui-workflow-guide-label: rgba(176, 184, 194, 0.48);
+  --ui-workflow-guide-value: rgba(240, 235, 227, 0.86);
+  --ui-workflow-fold-surface: rgba(255, 255, 255, 0.008);
+  --ui-workflow-fold-open-surface: rgba(255, 255, 255, 0.012);
+  --ui-workflow-fold-border: rgba(176, 184, 194, 0.045);
+  --ui-workflow-fold-foreground: rgba(232, 226, 216, 0.86);
+  --ui-workflow-pointer-surface: rgba(255, 255, 255, 0.016);
+  --ui-workflow-pointer-border: rgba(176, 184, 194, 0.065);
+  --ui-workflow-pointer-foreground: rgba(236, 229, 217, 0.82);
+
+  --ui-assistant-surface:
+    radial-gradient(circle at 16% 0%, rgba(111, 127, 143, 0.04), transparent 28%),
+    radial-gradient(circle at 84% 100%, rgba(110, 118, 132, 0.04), transparent 30%),
+    linear-gradient(180deg, rgba(18, 19, 23, 0.84), rgba(12, 13, 16, 0.76));
+  --ui-assistant-border: rgba(176, 184, 194, 0.06);
+  --ui-assistant-shadow: none;
+  --ui-assistant-foreground: #e7e1d7;
+  --ui-assistant-divider: rgba(176, 184, 194, 0.08);
+  --ui-assistant-caption: rgba(176, 184, 194, 0.6);
+  --ui-assistant-muted: rgba(227, 221, 211, 0.7);
+  --ui-assistant-context-foreground: #f0ebe3;
+  --ui-assistant-composer-surface:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  --ui-assistant-field-surface: rgba(255, 255, 255, 0.03);
+  --ui-assistant-field-border: rgba(176, 184, 194, 0.12);
+  --ui-assistant-field-foreground: #f1ece4;
+  --ui-assistant-chip-surface: rgba(255, 255, 255, 0.022);
+  --ui-assistant-chip-border: rgba(176, 184, 194, 0.075);
+  --ui-assistant-chip-foreground: rgba(221, 214, 203, 0.9);
+  --ui-assistant-thinking-surface: rgba(255, 255, 255, 0.028);
+  --ui-assistant-thinking-border: rgba(176, 184, 194, 0.1);
+  --ui-assistant-log-line: rgba(176, 184, 194, 0.14);
+  --ui-assistant-user-line: rgba(151, 142, 126, 0.24);
+  --ui-assistant-resting-input-min-height: 88px;
+  --ui-assistant-log-gap: 12px;
+  --ui-assistant-log-padding-inline: 14px;
+  --ui-assistant-log-padding-top: 12px;
+  --ui-assistant-header-row-min-height: 32px;
+
+  --ui-editor-shell-surface:
+    radial-gradient(circle at 16% 0%, rgba(245, 231, 197, 0.14), transparent 28%),
+    radial-gradient(circle at 78% 0%, rgba(111, 127, 143, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(18, 24, 36, 0.96), rgba(12, 17, 27, 0.9));
+  --ui-editor-shell-border: rgba(220, 208, 182, 0.14);
+  --ui-editor-shell-shadow: none;
+
+  --ui-status-surface: rgba(255, 255, 255, 0.045);
+  --ui-status-border: rgba(169, 184, 211, 0.12);
+
+  --ui-document-paper: #f7f2e8;
+  --ui-document-paper-muted: #efe7d8;
+  --ui-document-ink: #1f2937;
+  --ui-document-shadow: 0 10px 22px rgba(18, 16, 12, 0.06);
+  --ui-document-shell-border: rgba(103, 85, 66, 0.08);
+  --ui-document-heading: #2d2419;
+  --ui-document-label: #7e6f60;
+  --ui-document-path: #5d5043;
+  --ui-document-path-muted: #938678;
+  --ui-document-toolbar-surface:
+    linear-gradient(180deg, rgba(248, 244, 237, 0.9), rgba(247, 242, 234, 0.66));
+  --ui-document-toolbar-border: rgba(96, 78, 58, 0.08);
+  --ui-document-body-surface:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.82), rgba(247, 241, 232, 0.96) 16%, rgba(246, 239, 229, 0.98));
+  --ui-document-body-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  --ui-document-meta-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
+  --ui-document-meta-rule: rgba(103, 85, 66, 0.1);
+  --ui-document-stage-surface:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(244, 237, 226, 0.88));
+  --ui-document-stage-border: rgba(103, 85, 66, 0.1);
+  --ui-document-stage-shadow: 0 28px 64px rgba(34, 26, 16, 0.12);
+  --ui-document-stage-divider: rgba(96, 78, 58, 0.08);
+  --ui-document-stage-caption: #8a7765;
+  --ui-document-stage-title: #3e3124;
+  --ui-document-lane-max-width: 100%;
+  --ui-document-lane-max-width-md: 52rem;
+  --ui-document-lane-max-width-lg: 100%;
+  --ui-document-lane-shell-padding-block: 12px;
+  --ui-document-lane-shell-padding-block-lg: 20px;
+  --ui-document-lane-shell-padding-inline: 12px;
+  --ui-document-lane-shell-padding-inline-md: 20px;
+  --ui-document-lane-shell-padding-inline-lg: 14px;
+  --ui-document-lane-open-background: transparent;
+  --ui-document-lane-open-border: transparent;
+  --ui-document-lane-open-shadow: none;
+  --ui-document-editor-inline-padding: 18px;
+  --ui-document-editor-inline-padding-md: 22px;
+  --ui-document-editor-inline-padding-lg: 24px;
+  --ui-document-editor-padding-top: 14px;
+  --ui-document-editor-padding-bottom: 48px;
+  --ui-document-status-line-min-height: 40px;
+  --ui-document-status-line-padding-inline: 20px;
+  --ui-document-status-line-padding-block: 8px;
+  --ui-document-status-surface: rgba(114, 95, 73, 0.08);
+  --ui-document-status-border: rgba(114, 95, 73, 0.14);
+  --ui-document-status-foreground: #584737;
+  --ui-document-button-surface: rgba(255, 255, 255, 0.62);
+  --ui-document-button-border: rgba(103, 85, 66, 0.12);
+  --ui-document-button-foreground: #4a3d31;
+  --ui-document-button-hover-surface: rgba(255, 255, 255, 0.82);
+  --ui-document-button-hover-foreground: #2f241b;
+  --ui-document-readonly-note-surface:
+    linear-gradient(180deg, rgba(239, 226, 192, 0.58), rgba(245, 241, 232, 0.74));
+  --ui-document-readonly-surface:
+    linear-gradient(180deg, rgba(250, 244, 233, 0.95), rgba(241, 233, 220, 0.9));
+  --ui-document-readonly-border: rgba(180, 139, 78, 0.16);
+  --ui-document-readonly-shadow: 0 24px 56px rgba(78, 56, 22, 0.12);
+  --ui-document-readonly-ink: #6a4d22;
+  --ui-document-rule: rgba(120, 110, 94, 0.055);
+  --ui-document-readonly-rule: rgba(180, 139, 78, 0.07);
+  --ui-document-focus-ring: rgba(197, 176, 144, 0.24);
+  --ui-editor-tab-strip-divider: rgba(220, 208, 182, 0.08);
+  --ui-editor-tab-surface: transparent;
+  --ui-editor-tab-border: transparent;
+  --ui-editor-tab-shadow: none;
+  --ui-editor-tab-foreground: #d5dceb;
+  --ui-editor-tab-muted-foreground: #97a3ba;
+  --ui-editor-tab-caption: #8f9ab0;
+  --ui-editor-tab-hover-surface: rgba(255, 255, 255, 0.032);
+  --ui-editor-tab-active-surface: rgba(236, 228, 214, 0.08);
+  --ui-editor-tab-active-border: rgba(220, 208, 182, 0.1);
+  --ui-editor-tab-active-foreground: #f5f1ea;
+  --ui-editor-tab-active-caption: #cdb895;
+  --ui-editor-tab-active-shadow: inset 0 -1px 0 rgba(245, 241, 234, 0.18);
+  --ui-editor-tab-dirty: #f1cf84;
+  --ui-editor-tab-strip-supporting-opacity: 1;
+  --ui-editor-tab-strip-attached-rule: rgba(220, 208, 182, 0.09);
+  --ui-editor-tab-close-foreground: #7f8ba2;
+  --ui-editor-tab-close-hover-surface: rgba(255, 255, 255, 0.05);
+  --ui-editor-tab-close-hover-foreground: #eef2f8;
+  --ui-continuity-surface:
+    radial-gradient(circle at 18% 50%, rgba(111, 127, 143, 0.05), transparent 26%),
+    radial-gradient(circle at 82% 50%, rgba(110, 118, 132, 0.032), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.006));
+  --ui-continuity-border: rgba(176, 184, 194, 0.05);
+  --ui-continuity-divider: rgba(176, 184, 194, 0.11);
+  --ui-continuity-label: rgba(176, 184, 194, 0.48);
+  --ui-continuity-value: rgba(240, 235, 227, 0.92);
+  --ui-continuity-meta: rgba(227, 221, 211, 0.52);
+
+  --ui-overlay-backdrop: rgba(17, 24, 39, 0.72);
+  --ui-overlay-surface: #172033;
+  --ui-overlay-border: rgba(169, 184, 211, 0.2);
+  --ui-overlay-shadow: 0 18px 50px rgba(4, 8, 18, 0.34);
+  --ui-overlay-foreground: #e5e7eb;
+}
+
+[data-ui-surface='entry'] {
+  --ui-surface-background: var(--ui-entry-bg);
+  --ui-surface-foreground: var(--ui-entry-foreground);
+  --ui-surface-border: var(--ui-entry-border);
+  --ui-surface-shadow: var(--ui-entry-shadow);
+}
+
+[data-entry-surface='hero'] {
+  --ui-entry-treatment: hero-flow;
+  --ui-entry-foreground: var(--ui-entry-hero-foreground);
+}
+
+[data-entry-surface='product-preview'] {
+  --ui-entry-treatment: homepage-proof;
+  --ui-entry-background: var(--ui-entry-proof-surface);
+  --ui-entry-foreground: var(--ui-entry-proof-foreground);
+  --ui-entry-border-color: var(--ui-entry-proof-border);
+  --ui-entry-shadow-style: var(--ui-entry-proof-shadow);
+}
+
+[data-entry-surface='recent-projects'],
+[data-entry-surface='management-entry'],
+[data-entry-surface='management-panel'],
+[data-entry-surface='start-paths'],
+[data-entry-surface='benefits'],
+[data-entry-surface='create-sheet'] {
+  --ui-entry-treatment: supporting-entry;
+  --ui-entry-background: var(--ui-entry-supporting-surface);
+  --ui-entry-border-color: var(--ui-entry-supporting-border);
+  --ui-entry-shadow-style: var(--ui-entry-supporting-shadow);
+}
+
+[data-entry-surface='recent-projects'] {
+  --ui-entry-background: var(--ui-entry-continuation-surface);
+  --ui-entry-border-color: var(--ui-entry-continuation-border);
+}
+
+[data-entry-surface='benefits'] {
+  --ui-entry-background: transparent;
+  --ui-entry-border-color: var(--ui-entry-editorial-line);
+}
+
+[data-entry-surface='management-entry'] {
+  --ui-entry-background: var(--ui-entry-tertiary-surface);
+  --ui-entry-border-color: var(--ui-entry-tertiary-border);
+}
+
+[data-ui-surface='shell'] {
+  --ui-surface-background: var(--ui-shell-surface);
+  --ui-surface-foreground: var(--ui-shell-foreground);
+  --ui-surface-border: var(--ui-shell-border);
+  --ui-surface-shadow: var(--ui-shell-shadow);
+}
+
+[data-ui-surface='workbench-shell'] {
+  --ui-surface-treatment: quiet-workbench-shell;
+  --ui-surface-background: var(--ui-workbench-shell-surface);
+  --ui-surface-foreground: var(--ui-shell-foreground);
+  --ui-shell-frame-role: ambient-shell;
+}
+
+[data-ui-surface='workbench-grid'] {
+  --ui-surface-gap: var(--ui-workbench-grid-gap);
+}
+
+[data-ui-surface='workbench-grid'][data-shell-balance='creative-dominant'] {
+  --ui-workbench-creative-area-min: 85%;
+  --ui-workbench-support-area-max: 15%;
+  --ui-workbench-support-rail-collapsed-width: 92px;
+  --workbench-workflow-rail-column: var(--ui-workbench-support-rail-collapsed-width);
+}
+
+[data-ui-surface='top-bar'] {
+  --ui-surface-treatment: supportive-top-bar;
+  --ui-surface-background: var(--ui-top-bar-surface);
+  --ui-surface-foreground: var(--ui-shell-foreground);
+  --ui-surface-border: var(--ui-top-bar-border);
+  --ui-surface-shadow: var(--ui-top-bar-shadow);
+  --ui-shell-chrome-role: supportive-chrome;
+  --ui-shell-cohesion-band: creative-workbench;
+}
+
+[data-ui-surface='continuity-strip'] {
+  --ui-surface-treatment: continuity-band;
+  --ui-shell-cohesion-band: creative-workbench;
+  --ui-continuity-division: live;
+}
+
+[data-ui-surface='editor-primary'] {
+  --ui-surface-treatment: manuscript-stage;
+  --ui-surface-background: var(--ui-editor-shell-surface);
+  --ui-surface-foreground: var(--ui-shell-foreground);
+  --ui-surface-border: var(--ui-editor-shell-border);
+  --ui-surface-shadow: var(--ui-editor-shell-shadow);
+  --ui-stage-role: manuscript-stage;
+}
+
+[data-ui-surface='chat-panel'] {
+  --ui-surface-treatment: assistant-dock;
+  --ui-surface-background: var(--ui-assistant-surface);
+  --ui-surface-foreground: var(--ui-assistant-foreground);
+  --ui-surface-border: var(--ui-assistant-border);
+  --ui-surface-shadow: var(--ui-assistant-shadow);
+  --ui-dock-role: collaborator-dock;
+  --ui-shell-cohesion-band: creative-workbench;
+  --ui-assistant-context-shell-link: continuity-linked;
+}
+
+[data-ui-surface='file-rail'] {
+  --ui-surface-treatment: supporting-rail;
+  --ui-surface-background: var(--ui-file-rail-surface);
+  --ui-surface-foreground: var(--ui-file-rail-foreground);
+  --ui-surface-border: var(--ui-file-rail-border);
+  --ui-surface-shadow: var(--ui-file-rail-shadow);
+  --ui-rail-divider: var(--ui-file-rail-divider);
+  --ui-rail-accent: var(--ui-file-rail-accent);
+  --ui-shell-rail-emphasis: supporting;
+}
+
+[data-ui-surface='workflow-rail'] {
+  --ui-surface-treatment: supporting-rail;
+  --ui-surface-background: var(--ui-workflow-rail-surface);
+  --ui-surface-foreground: var(--ui-workflow-rail-foreground);
+  --ui-surface-border: var(--ui-workflow-rail-border);
+  --ui-surface-shadow: var(--ui-workflow-rail-shadow);
+  --ui-rail-divider: var(--ui-workflow-rail-divider);
+  --ui-rail-accent: var(--ui-workflow-rail-accent);
+  --ui-shell-rail-emphasis: supporting;
+}
+
+[data-context-tone='embedded'] {
+  --ui-shell-context-tone: embedded;
+}
+
+[data-ui-surface='document'] {
+  --ui-surface-treatment: manuscript-document;
+  --ui-surface-background: var(--ui-document-paper);
+  --ui-surface-foreground: var(--ui-document-ink);
+  --ui-surface-border: var(--ui-document-shell-border);
+  --ui-surface-shadow: var(--ui-document-shadow);
+  --ui-document-tone: writing-stage;
+}
+
+[data-ui-surface='overlay'] {
+  --ui-surface-background: var(--ui-overlay-surface);
+  --ui-surface-foreground: var(--ui-overlay-foreground);
+  --ui-surface-border: var(--ui-overlay-border);
+  --ui-surface-shadow: var(--ui-overlay-shadow);
+}

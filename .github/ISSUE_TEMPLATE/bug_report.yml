@@ -1,0 +1,40 @@
+name: Bug Report
+description: Report a reproducible problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe what you were doing and what went wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Please use fictional or redacted content instead of unpublished manuscript text.
+      placeholder: |
+        1. Open...
+        2. Click...
+        3. Enter...
+        4. See...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, browser, Node.js version, pnpm version"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove API keys, manuscript text, request payloads, and personal paths first.

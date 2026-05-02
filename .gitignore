@@ -1,0 +1,23 @@
+node_modules/
+dist/
+out/
+coverage/
+playwright-report/
+test-results/
+test-runs/
+*.log
+*.patch
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Local agent/runtime state. Do not publish logs or machine-specific automation traces.
+.omx/
+.sisyphus/
+.superpowers/
+.opencode/
+
+# Internal development handoff/planning history. Keep OpenSpec as the public change record.
+docs/superpowers/
+openspec-superpowers-skill/

@@ -1,0 +1,43 @@
+name: Feature Request
+description: Suggest a product or workflow improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What writer problem does this solve?
+      description: Describe the writing workflow or pain point.
+    validations:
+      required: true
+  - type: textarea
+    id: current-workaround
+    attributes:
+      label: How do you handle it today?
+      description: Mention documents, spreadsheets, chat windows, manual notes, or other tools.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should AuctorForge do?
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Writing stage
+      options:
+        - Project setup
+        - Characters
+        - Worldbuilding
+        - Outline
+        - Drafting
+        - Revision
+        - Continuity review
+        - Export or backup
+        - Model configuration
+        - Other
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example
+      description: Use fictional examples only.
