@@ -1,5 +1,5 @@
-# Screenshots
+# 截图 / Screenshots
 
-Public screenshots should use fictional content and avoid local paths, API keys, logs, or unpublished manuscript text.
+公开截图应使用虚构内容，避免出现本地路径、API key、日志或未公开稿件文本。
 
-- `startup.png`: AuctorForge startup screen for README and release materials.
+- `startup.png`：AuctorForge 启动页截图，用于 README 和发布材料。

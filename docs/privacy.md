@@ -1,61 +1,61 @@
-# Privacy And Manuscript Safety
+# 稿件隐私与安全 / Privacy And Manuscript Safety
 
-AuctorForge is designed for writers, so unpublished text and project materials deserve special care.
+AuctorForge 面向作者，所以未公开稿件和项目资料需要被认真对待。
 
-## What Can Be Sensitive
+## 哪些内容可能敏感
 
-- Draft chapters
-- Outlines
-- Character notes
-- Worldbuilding
-- Review notes
-- Prompt templates with story details
-- Model API keys
-- Local project paths
-- Request logs
+- 正文章节
+- 大纲
+- 人物卡
+- 世界观与设定
+- 审稿意见
+- 包含故事细节的提示词模板
+- 模型 API key
+- 本地项目路径
+- 请求日志
 
-## Local Files
+## 本地文件
 
-The app works with local project files and workflow assets. Before using valuable manuscript material, confirm:
+AuctorForge 使用本地项目文件和工作流资产。使用有价值的真实稿件前，请先确认：
 
-- Where the project folder is located
-- Which files the app creates or edits
-- Whether backups exist
-- How to export your work
+- 项目文件夹在哪里
+- 应用会创建或编辑哪些文件
+- 是否已有备份
+- 如何导出或迁移你的作品
 
-On first run, AuctorForge can create a fictional Lantern Road sample project. Use that sample to inspect the workbench, file tree, and editor before pointing the app at real drafts.
+第一次打开时，AuctorForge 可以创建虚构示例项目 `Lantern Road`。建议先用这个示例检查工作台、文件树和编辑器，再导入真实稿件。
 
-## Remote Model Providers
+## 远程模型服务商
 
-If a feature calls a remote model service, the service may receive text from your project. Depending on the feature, that may include chapter drafts, outlines, character notes, review instructions, or chat messages.
+如果某个功能调用远程模型服务，服务商可能会收到项目中的部分文本。具体可能包括：章节草稿、大纲、人物笔记、审稿说明或聊天消息。
 
-Before enabling a model provider:
+启用模型服务商前，请先：
 
-- Read the provider's data policy
-- Test with fictional content
-- Avoid pasting private full manuscripts until you trust the setup
-- Keep API keys out of Git
+- 阅读服务商的数据政策
+- 用虚构内容测试
+- 在信任配置前，不要粘贴完整私人稿件
+- 不要把 API key 提交到 Git
 
-You can browse and edit local projects before model-provider credentials are configured.
+即使未配置模型服务商，你仍然可以浏览和编辑本地项目。
 
-## Public Repository Checklist
+## 公开仓库检查清单
 
-Before publishing or sharing the repository, check for:
+发布或分享仓库前，请检查：
 
 - `.env`
-- API keys and tokens
-- Unpublished manuscript material
-- Local project folders
-- Test logs with request payloads
-- Screenshots containing private text
-- Personal filesystem paths
+- API keys 和 tokens
+- 未公开稿件材料
+- 本地项目文件夹
+- 包含请求内容的测试日志
+- 包含私人文本的截图
+- 个人本地路径
 
-## Maintainer Notes
+## 维护者备注
 
-Future hosted or sync features should document:
+未来如果加入托管或同步功能，必须说明：
 
-- What is uploaded
-- Who processes it
-- How long it is retained
-- Whether it is used for training
-- How users can delete it
+- 上传了什么
+- 由谁处理
+- 保留多久
+- 是否用于训练
+- 用户如何删除

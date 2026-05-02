@@ -1,108 +1,118 @@
 # AuctorForge
 
-AuctorForge is an open-source creative workbench for Chinese long-form fiction writers.
+面向中文网文作者的本地优先 AI 长篇创作工作台。
 
-It brings project setup, manuscript files, workflow guidance, review loops, assistant chat, and model configuration into one local-first Web UI, so writers can keep story context close instead of scattering drafts and prompts across disconnected chat windows.
+> English summary: AuctorForge is a local-first creative workbench for Chinese long-form fiction writers. It helps writers manage project files, story context, workflow guidance, review loops, assistant chat, and model settings in one Web UI.
 
-## Who It Is For
+AuctorForge 想解决的是一个很具体的问题：长篇创作时，设定、人物、大纲、正文、审稿意见、AI 对话和提示词常常散落在不同文档、表格和聊天窗口里。这个项目把它们收回到一个可检查、可备份、以本地文件为核心的写作工作流里，让 AI 成为可控助手，而不是替作者接管创作。
 
-- Chinese web-novel authors managing long projects with characters, outlines, drafts, reviews, and continuity notes
-- Writers who want AI as a controllable assistant rather than an automatic replacement for authorship
-- Developers building better creative tooling around local files, transparent model calls, and durable writing workflows
-- Prompt and workflow designers who want to contribute reusable long-form fiction processes
+## 适合谁
 
-## Current Shape
+- 正在写长篇、连载、系列文的中文网文作者
+- 需要管理人物、设定、大纲、正文、审查和连续性笔记的作者
+- 希望先试用安全示例，再把真实稿件放进工具里的作者
+- 希望 AI 辅助创作，但仍保留作者声音、判断和修改权的人
+- 想参与本地文件、透明模型调用、长篇工作流工具建设的开发者
+- 想贡献中文长篇创作流程、提示词和审稿模板的编辑/策划/工作流设计者
 
-This repository is a pnpm workspace with three packages:
+## 当前形态
 
-- `apps/web`: Vite + React Web UI
-- `apps/server`: Fastify API server
-- `packages/shared`: shared TypeScript contracts
+这个仓库是一个 pnpm workspace：
 
-The product currently focuses on a local writing workbench backed by project files and bundled workflow assets.
+- `apps/web`：Vite + React Web UI
+- `apps/server`：Fastify 本地 API 服务
+- `packages/shared`：共享 TypeScript 契约
 
-## Screenshot
+产品当前重点是：本地项目文件、创作工作台、文件树、编辑器、助手对话、流程进度和模型配置。
 
-![AuctorForge startup screen](docs/assets/screenshots/startup.png)
+## 截图
 
-## Quick Start
+![AuctorForge 启动页](docs/assets/screenshots/startup.png)
 
-Install dependencies:
+## 快速开始
+
+安装依赖：
 
 ```bash
 pnpm install
 ```
 
-Copy the environment template:
+复制环境变量模板：
 
 ```bash
 cp .env.example .env
 ```
 
-Start the API server:
+启动 API 服务：
 
 ```bash
 pnpm dev:server
 ```
 
-In another terminal, start the Web UI:
+另开一个终端启动 Web UI：
 
 ```bash
 pnpm dev:web
 ```
 
-Open the local URL printed by Vite, usually `http://localhost:5173`.
+打开 Vite 输出的本地地址，通常是 `http://localhost:5173`。
 
-## Scripts
+更详细步骤见 [快速开始](docs/quick-start.md)。
+
+## 常用命令
 
 ```bash
-pnpm build       # build all workspace packages
-pnpm test        # run unit tests across packages
-pnpm test:e2e    # run Playwright end-to-end tests
-pnpm dev:server  # start the API server on 127.0.0.1:3001
-pnpm dev:web     # start the Vite web app
+pnpm build       # 构建所有 workspace 包
+pnpm test        # 运行单元测试
+pnpm test:e2e    # 运行 Playwright 端到端测试
+pnpm dev:server  # 启动本地 API 服务，默认 127.0.0.1:3001
+pnpm dev:web     # 启动 Vite Web 应用
 ```
 
-## Privacy And Manuscript Safety
+## 稿件隐私与安全
 
-Writers' drafts, settings, outlines, and unpublished ideas can be commercially sensitive. Read [Privacy And Manuscript Safety](docs/privacy.md) before using real work.
+网文作者的正文、设定、大纲、未公开创意和模型密钥都可能非常敏感。使用真实稿件前，请先阅读 [稿件隐私与安全](docs/privacy.md)。
 
-As a rule of thumb: test the app with fictional sample content first, then verify where files are saved and what is sent to any configured model provider.
+建议流程：
 
-For the product thinking behind this, see [What Writers Care About In AI Writing Tools](docs/author-trust-research.md). It summarizes common author concerns around privacy, copyright, control, consistency, and workflow fit, then shows how AuctorForge is responding.
+1. 先用内置虚构示例项目 `Lantern Road` 试跑。
+2. 确认项目文件保存在哪里。
+3. 大改前复制整个项目文件夹做备份。
+4. 配置模型服务商前，先理解哪些功能可能把文本发送给远程模型。
 
-## Roadmap
+我们为什么这样设计，见 [AI 写作工具用户最关心什么](docs/author-trust-research.md)。这篇文档把调研中的隐私、版权、控制感、长篇一致性和工作流适配问题，映射到 AuctorForge 当前的产品选择。
 
-See [ROADMAP.md](ROADMAP.md) for the open-source readiness plan and product direction.
+## 路线图
 
-Near-term priorities:
+见 [ROADMAP.md](ROADMAP.md)。
 
-1. Make the repository easy to run and audit.
-2. Make the first writer journey clear: create/open a project, inspect files, chat with the assistant, and edit manuscript materials.
-3. Make model and data-flow behavior explicit enough for authors to trust.
-4. Grow reusable Chinese long-form fiction workflow templates.
+近期优先级：
+
+1. 让仓库容易运行、检查和贡献。
+2. 让作者第一次进入时能安全试用：创建/打开项目、检查文件、与助手对话、编辑稿件材料。
+3. 把模型调用和数据流讲清楚，让作者知道什么时候只是本地编辑，什么时候可能调用远程模型。
+4. 扩展适合中文长篇网文的可复用工作流模板。
+5. 补强导出、备份和模型请求透明能力。
 
 ## OpenSpec
 
-This repository already uses OpenSpec for behavior-changing product work under `openspec/`.
+本仓库使用 OpenSpec 记录会改变产品行为的工作，相关内容在 `openspec/` 下。
 
-Documentation, examples, issue templates, and other release-supporting files can ship without a new OpenSpec change. Product behavior changes should use a dedicated change record. See [OpenSpec Change Plan](docs/openspec-change-plan.md).
+文档、示例、Issue 模板等发布支持内容可以直接提交；会改变用户流程、数据流或功能行为的变更应创建独立 OpenSpec change。详见 [OpenSpec 变更计划](docs/openspec-change-plan.md)。
 
-For a high-level map of the codebase, see [Architecture Overview](docs/architecture.md).
+代码结构见 [架构概览](docs/architecture.md)。发布说明草稿见 [v0.1.0 发布说明草稿](docs/release-notes-v0.1.0-draft.md)。
 
-Draft release notes live in [docs/release-notes-v0.1.0-draft.md](docs/release-notes-v0.1.0-draft.md).
+## 参与贡献
 
-## Contributing
+欢迎作者、编辑、工作流设计者和开发者参与。先看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-Contributions are welcome from writers, editors, workflow designers, and developers. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+特别欢迎：
 
-Useful contribution types:
-
-- Bug reports with reproduction steps
-- Writer workflow feedback
-- Prompt and review-template proposals
-- Documentation improvements
-- Small fixes with focused tests
+- 带复现步骤的 bug 反馈
+- 中文网文创作流程反馈
+- 人设、设定、大纲、正文审查相关模板建议
+- 文档改进
+- 带聚焦测试的小修复
 
 ## License
 

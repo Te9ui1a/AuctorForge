@@ -1,92 +1,92 @@
-# OpenSpec Change Plan
+# OpenSpec 变更计划 / OpenSpec Change Plan
 
-OpenSpec should track changes that affect product behavior, user workflows, data flow, or compatibility.
+OpenSpec 用来记录会影响产品行为、用户流程、数据流或兼容性的变更。
 
-The current open-source readiness work is supplementary documentation and repository hygiene, so it does not require a new OpenSpec change.
+纯文档、仓库卫生、Issue 模板、发布清单等开源准备工作通常不需要新的 OpenSpec change。
 
 ## add-author-onboarding
 
-Goal: help first-time writers understand how to start safely.
+目标：帮助第一次使用的作者安全开始。
 
-Scope:
+范围：
 
-- First-run guidance
-- Sample content entry point
-- Model configuration checks
-- Local storage explanation
-- Clear next actions when no project is open
+- 首次使用建议
+- 示例内容入口
+- 模型配置检查
+- 本地存储说明
+- 未打开项目时的清晰下一步
 
-Acceptance:
+验收：
 
-- A new user can create or open a project from the first screen.
-- Missing model settings produce useful guidance.
-- The UI distinguishes local project actions from model-provider calls.
+- 新用户能从首屏创建或打开项目。
+- 缺少模型配置时，有可理解的引导。
+- UI 能区分本地项目动作和模型服务商调用。
 
 ## add-sample-project
 
-Goal: let users try the workflow without private manuscript material.
+目标：让用户在不暴露私人稿件的情况下试用工作流。
 
-Scope:
+范围：
 
-- Fictional sample project
-- Sample characters, outline, and draft files
-- Reset or duplicate sample project flow
-- Documentation explaining that sample content is safe to edit
+- 虚构示例项目
+- 示例人物、大纲、正文文件
+- 重置或复制示例项目流程
+- 文档说明示例内容可安全编辑
 
-Acceptance:
+验收：
 
-- A user can load the sample and inspect the workbench.
-- Sample content exercises project files, chat context, and review paths.
-- No private or third-party copyrighted text is included.
+- 用户可以加载示例并检查工作台。
+- 示例内容能覆盖项目文件、对话上下文和审查路径。
+- 不包含私人文本或第三方版权正文。
 
 ## add-model-request-transparency
 
-Goal: show what text may leave the machine before model calls.
+目标：在模型调用前说明哪些文本可能离开本机。
 
-Scope:
+范围：
 
-- Request scope preview
-- Provider name and endpoint display
-- Remote request enablement state
-- Clear error states for missing configuration
+- 请求范围预览
+- 服务商名称和 endpoint 展示
+- 远程请求启用状态
+- 缺少配置时的清晰错误状态
 
-Acceptance:
+验收：
 
-- Users can see which project materials are included in a model request.
-- Users can avoid remote requests when they only want local editing.
-- Tests cover disabled and misconfigured provider states.
+- 用户能看到模型请求包含哪些项目材料。
+- 用户只想本地编辑时，可以避免远程请求。
+- 测试覆盖禁用和配置错误状态。
 
 ## add-export-and-backup-controls
 
-Goal: give writers confidence that their work is portable.
+目标：让作者相信作品可迁移、可备份。
 
-Scope:
+范围：
 
-- Export guidance or controls
-- Backup reminders
-- Project folder reveal action
-- Safer overwrite messaging
+- 导出说明或控制
+- 备份提醒
+- 项目文件夹定位动作
+- 更安全的覆盖写入提示
 
-Acceptance:
+验收：
 
-- Users can find project files from the UI.
-- Users can export or back up project materials through a documented path.
-- Destructive or overwriting actions are clearly labeled.
+- 用户能从 UI 找到项目文件。
+- 用户能通过文档化路径导出或备份项目材料。
+- 破坏性或覆盖性动作有清晰标签。
 
 ## add-template-library-management
 
-Goal: make reusable writing workflows easier to inspect and evolve.
+目标：让可复用写作工作流更容易检查和演进。
 
-Scope:
+范围：
 
-- Template categories
-- Template preview
-- Template import/export
-- User-defined templates
-- Version notes for bundled templates
+- 模板分类
+- 模板预览
+- 模板导入/导出
+- 用户自定义模板
+- 内置模板版本说明
 
-Acceptance:
+验收：
 
-- Users can inspect a template before using it.
-- Users can create or modify a template without editing bundled assets directly.
-- Templates use fictional examples.
+- 用户使用模板前可以先检查。
+- 用户可以创建或修改模板，而不直接编辑内置资产。
+- 模板使用虚构示例。

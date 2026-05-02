@@ -1,40 +1,40 @@
-name: Bug Report
-description: Report a reproducible problem
+name: Bug 反馈 / Bug Report
+description: 报告一个可以复现的问题
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: textarea
     id: what-happened
     attributes:
-      label: What happened?
-      description: Describe what you were doing and what went wrong.
+      label: 发生了什么？
+      description: 请描述你当时在做什么，以及哪里不符合预期。
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: What did you expect?
+      label: 你原本期待发生什么？
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: How can we reproduce it?
-      description: Please use fictional or redacted content instead of unpublished manuscript text.
+      label: 如何复现？
+      description: 请使用虚构或脱敏内容，不要贴未公开稿件正文。
       placeholder: |
-        1. Open...
-        2. Click...
-        3. Enter...
-        4. See...
+        1. 打开...
+        2. 点击...
+        3. 输入...
+        4. 看到...
     validations:
       required: true
   - type: input
     id: environment
     attributes:
-      label: Environment
-      placeholder: "OS, browser, Node.js version, pnpm version"
+      label: 环境
+      placeholder: "系统、浏览器、Node.js 版本、pnpm 版本"
   - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots
-      description: Remove API keys, manuscript text, request payloads, and personal paths first.
+      label: 日志或截图
+      description: 请先移除 API key、稿件正文、请求内容和个人本地路径。

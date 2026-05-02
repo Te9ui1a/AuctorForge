@@ -1,30 +1,32 @@
-# AuctorForge v0.1.0 Draft Release Notes
+# AuctorForge v0.1.0 发布说明草稿
 
-This is the first public-readiness draft for AuctorForge.
+这是 AuctorForge 第一个面向公开发布准备的草稿。
 
-## What It Is
+## 这是什么
 
-AuctorForge is a local-first creative workbench for Chinese long-form fiction writers. It combines a React workbench, Fastify local API server, project files, bundled writing workflow assets, and OpenSpec-backed product development.
+AuctorForge 是面向中文长篇网文作者的本地优先创作工作台。它结合了 React 工作台、Fastify 本地 API 服务、项目文件、内置写作工作流资产，以及 OpenSpec 驱动的产品开发记录。
 
-## Highlights
+English summary: AuctorForge is a local-first creative workbench for Chinese long-form fiction writers.
 
-- Local project workflow for long-form writing materials
-- Launcher and workbench surfaces under the AuctorForge brand
-- First-run guidance with a dismissible onboarding module
-- Built-in fictional Lantern Road sample project for safe evaluation
-- Public author-trust research page that maps AI writing tool concerns to AuctorForge choices
-- Startup manuscript-safety and manual backup guidance
-- Project file navigation, document editing, chat, workflow progress, and model settings
-- OpenSpec change records for behavior-changing product work
-- Public documentation for setup, architecture, privacy, contribution, and release readiness
+## 亮点
 
-## For Writers
+- 面向长篇创作材料的本地项目工作流
+- AuctorForge 品牌下的启动页和工作台界面
+- 可隐藏的首次使用建议
+- 内置虚构示例项目 `Lantern Road`，用于安全试用
+- 公开的作者信任调研页，把 AI 写作工具常见顾虑映射到 AuctorForge 的产品选择
+- 启动页稿件安全和手动备份提示
+- 文件导航、文档编辑、助手对话、流程进度和模型配置
+- OpenSpec 变更记录，用于追踪会影响产品行为的工作
+- 设置、架构、隐私、贡献和发布准备相关文档
 
-Start with fictional sample content while evaluating the app. Confirm where project files are saved and how model settings are configured before using valuable unpublished manuscripts.
+## 给作者
 
-## For Developers
+第一次试用请从虚构示例项目开始。使用有价值的未公开稿件前，请确认项目文件保存在哪里、如何备份，以及模型配置会影响哪些远程请求。
 
-Run locally with:
+## 给开发者
+
+本地运行：
 
 ```bash
 pnpm install
@@ -32,7 +34,7 @@ pnpm dev:server
 pnpm dev:web
 ```
 
-Verify with:
+验证：
 
 ```bash
 openspec validate --all
@@ -41,8 +43,8 @@ pnpm build
 pnpm test:e2e
 ```
 
-## Known Gaps Before Public Release
+## 公开发布前仍需处理
 
-- Add screenshots or a short demo GIF.
-- Build stronger export and backup controls beyond current manual guidance.
-- Decide the first release tag plan.
+- 增加截图或短 demo GIF。
+- 在当前手动备份提示之外，补强导出和备份控制。
+- 决定第一个 release tag 方案。

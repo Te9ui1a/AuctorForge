@@ -1,46 +1,46 @@
-name: Workflow Or Template Proposal
-description: Propose a reusable writing workflow, prompt, or review template
+name: 写作流程或模板建议 / Workflow Template
+description: 提出可复用的写作流程、提示词或审稿模板
 title: "[Template]: "
 labels: ["workflow-template"]
 body:
   - type: input
     id: use-case
     attributes:
-      label: Use case
-      placeholder: "Example: chapter hook review, character motivation check, outline expansion"
+      label: 使用场景
+      placeholder: "例如：章节钩子审查、人物动机检查、大纲扩写"
     validations:
       required: true
   - type: dropdown
     id: stage
     attributes:
-      label: Writing stage
+      label: 写作阶段
       options:
-        - Project setup
-        - Characters
-        - Worldbuilding
-        - Outline
-        - Drafting
-        - Revision
-        - Continuity review
-        - Export or backup
-        - Other
+        - 项目初始化 / Project setup
+        - 人物 / Characters
+        - 世界观与设定 / Worldbuilding
+        - 大纲 / Outline
+        - 正文起草 / Drafting
+        - 修改润色 / Revision
+        - 连续性审查 / Continuity review
+        - 导出或备份 / Export or backup
+        - 其他 / Other
   - type: textarea
     id: inputs
     attributes:
-      label: Required inputs
-      placeholder: "Example: current chapter summary, protagonist goal, known foreshadowing"
+      label: 需要哪些输入？
+      placeholder: "例如：当前章节摘要、主角目标、已知伏笔"
     validations:
       required: true
   - type: textarea
     id: output
     attributes:
-      label: Expected output
+      label: 期望输出
     validations:
       required: true
   - type: textarea
     id: template
     attributes:
-      label: Draft template
-      description: Do not include private manuscript text or unauthorized copyrighted material.
+      label: 模板草稿
+      description: 不要包含私人稿件或未经授权的版权文本。
     validations:
       required: true

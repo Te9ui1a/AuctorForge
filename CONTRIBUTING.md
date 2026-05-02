@@ -1,56 +1,56 @@
-# Contributing
+# 参与贡献 / Contributing
 
-Thank you for helping improve AuctorForge.
+感谢你帮助改进 AuctorForge。
 
-The project is for writers first. Technical improvements matter most when they make writing safer, clearer, faster, or more controllable.
+AuctorForge 首先是给作者用的工具。技术改进最有价值的地方，是让写作更安全、更清晰、更高效、更可控。
 
-## Ways To Contribute
+## 可以怎样贡献
 
-- Report reproducible bugs
-- Share writer workflow feedback
-- Improve onboarding and documentation
-- Contribute prompt, review, or workflow templates
-- Add focused tests around existing behavior
-- Improve UI polish without making the workspace harder to scan
+- 报告可以复现的 bug
+- 分享中文网文写作流程反馈
+- 改进入门体验和文档
+- 贡献提示词、审稿模板或工作流模板
+- 为现有行为补聚焦测试
+- 打磨 UI，但不要降低工作台的信息可扫读性
 
-## Before Opening An Issue
+## 提 Issue 前
 
-Please include:
+请尽量包含：
 
-- What you were trying to do
-- What you expected
-- What actually happened
-- Steps to reproduce
-- Your OS, browser, Node.js version, and pnpm version
-- Whether a model provider was configured
+- 你原本想做什么
+- 你预期发生什么
+- 实际发生了什么
+- 复现步骤
+- 系统、浏览器、Node.js 版本、pnpm 版本
+- 当时是否配置了模型服务商
 
-Avoid posting unpublished manuscript text. Use fictional or redacted examples when possible.
+请不要公开粘贴未发布稿件。尽量使用虚构或脱敏示例。
 
-## Code Changes
+## 代码改动
 
-For product behavior changes:
+如果改动会影响产品行为：
 
-1. Check existing OpenSpec changes under `openspec/changes`.
-2. Create or update an OpenSpec change when the product behavior, workflow, data model, or UI behavior changes.
-3. Keep pull requests focused.
-4. Add or update tests for the behavior you changed.
-5. Document verification commands in the PR.
+1. 先查看 `openspec/changes` 下已有变更。
+2. 当产品行为、写作流程、数据模型或 UI 行为发生变化时，创建或更新 OpenSpec change。
+3. 保持 PR 聚焦。
+4. 为你改动的行为添加或更新测试。
+5. 在 PR 中写明验证命令。
 
-For supplementary changes such as README updates, issue templates, examples, and release checklists, OpenSpec is usually unnecessary.
+如果只是 README、Issue 模板、示例、发布清单等辅助内容，通常不需要 OpenSpec。
 
-## Prompt And Workflow Contributions
+## 提示词与工作流贡献
 
-Good templates should state:
+好的模板应说明：
 
-- Target writing stage
-- Required inputs
-- Output format
-- Constraints and failure modes
-- Examples using fictional content
+- 目标写作阶段
+- 需要哪些输入
+- 输出格式
+- 约束与失败模式
+- 使用虚构内容的示例
 
-Templates should help writers make decisions. Avoid encouraging plagiarism, undisclosed copying, or bulk generation that removes author control.
+模板应该帮助作者做判断。不要鼓励抄袭、未披露复制，或让作者失去控制的大批量生成。
 
-## Local Development
+## 本地开发
 
 ```bash
 pnpm install
@@ -58,14 +58,14 @@ pnpm dev:server
 pnpm dev:web
 ```
 
-Before submitting code, run:
+提交代码前请运行：
 
 ```bash
 pnpm test
 pnpm build
 ```
 
-Use Playwright for browser-level changes:
+涉及浏览器交互或界面流程时，运行：
 
 ```bash
 pnpm test:e2e

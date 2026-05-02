@@ -1,35 +1,35 @@
-# Security Policy
+# 安全政策 / Security Policy
 
-## Reporting Security Issues
+## 报告安全问题
 
-Please do not post exploitable security details, API keys, unpublished manuscripts, logs with personal paths, or private project files in public issues.
+请不要在公开 Issue 中发布可利用的安全细节、API key、未公开稿件、包含个人路径的日志，或私人项目文件。
 
-Before public release, maintainers should add a dedicated security contact channel such as GitHub Security Advisories or a project email address.
+公开发布前，维护者应补充专门的安全联系渠道，例如 GitHub Security Advisories 或项目邮箱。
 
-Useful reports include:
+有帮助的报告通常包括：
 
-- Affected version or commit
-- Reproduction steps
-- Expected and actual impact
-- Whether manuscript text, model credentials, local files, or model request logs are involved
+- 受影响版本或 commit
+- 复现步骤
+- 预期影响与实际影响
+- 是否涉及稿件文本、模型凭证、本地文件或模型请求日志
 
-## Sensitive Data
+## 敏感数据
 
-Do not commit:
+不要提交：
 
 - `.env`
-- API keys or access tokens
-- Model provider credentials
-- Unpublished manuscript text
-- Test databases with real content
-- Logs that include local paths, request payloads, or secrets
-- Screenshots with private project content
+- API key 或 access token
+- 模型服务商凭证
+- 未公开稿件正文
+- 包含真实内容的测试数据库
+- 包含本地路径、请求内容或密钥的日志
+- 包含私人项目内容的截图
 
-## Model Requests
+## 模型请求
 
-Any feature that sends writing materials to a remote model service should make the data flow clear to the user:
+任何会把写作材料发送给远程模型服务的功能，都应该向用户讲清楚：
 
-- What text is sent
-- Which service receives it
-- Whether logs are retained
-- Whether the request can be disabled
+- 发送了什么文本
+- 哪个服务会收到
+- 日志是否保留
+- 请求是否可以禁用

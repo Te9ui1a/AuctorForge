@@ -1,43 +1,43 @@
-name: Feature Request
-description: Suggest a product or workflow improvement
+name: 功能建议 / Feature Request
+description: 提出产品、写作流程或工作台改进建议
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: What writer problem does this solve?
-      description: Describe the writing workflow or pain point.
+      label: 这个建议解决哪个作者问题？
+      description: 请描述具体写作流程、痛点或卡点。
     validations:
       required: true
   - type: textarea
     id: current-workaround
     attributes:
-      label: How do you handle it today?
-      description: Mention documents, spreadsheets, chat windows, manual notes, or other tools.
+      label: 你现在怎么处理？
+      description: 可以提到文档、表格、聊天窗口、手工笔记或其他工具。
   - type: textarea
     id: proposal
     attributes:
-      label: What should AuctorForge do?
+      label: 你希望 AuctorForge 做什么？
     validations:
       required: true
   - type: dropdown
     id: stage
     attributes:
-      label: Writing stage
+      label: 写作阶段
       options:
-        - Project setup
-        - Characters
-        - Worldbuilding
-        - Outline
-        - Drafting
-        - Revision
-        - Continuity review
-        - Export or backup
-        - Model configuration
-        - Other
+        - 项目初始化 / Project setup
+        - 人物 / Characters
+        - 世界观与设定 / Worldbuilding
+        - 大纲 / Outline
+        - 正文起草 / Drafting
+        - 修改润色 / Revision
+        - 连续性审查 / Continuity review
+        - 导出或备份 / Export or backup
+        - 模型配置 / Model configuration
+        - 其他 / Other
   - type: textarea
     id: examples
     attributes:
-      label: Example
-      description: Use fictional examples only.
+      label: 示例
+      description: 请只使用虚构示例，不要粘贴真实未公开稿件。
