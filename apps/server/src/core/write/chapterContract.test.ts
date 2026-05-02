@@ -84,7 +84,7 @@ describe('chapterContract', () => {
     });
   });
 
-  it('rejects over-length drafts using per-chapter plans from the master outline when volume chapter outline is missing', () => {
+  it('accepts long drafts using per-chapter plans from the master outline when volume chapter outline is missing', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 8,
       projectFiles: [
@@ -109,10 +109,7 @@ describe('chapterContract', () => {
       ],
     });
 
-    expect(validation).toMatchObject({
-      ok: false,
-      message: expect.stringContaining('字数超出'),
-    });
+    expect(validation).toEqual({ ok: true });
   });
 
   it('fails closed when no chapter plan source is available', () => {
@@ -157,7 +154,7 @@ describe('chapterContract', () => {
     });
   });
 
-  it('rejects chapter drafts below the 3000-character target band', () => {
+  it('rejects chapter drafts below the 3000-character minimum', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 1,
       projectFiles: [
@@ -177,11 +174,11 @@ describe('chapterContract', () => {
     expect(validation).toMatchObject({
       ok: false,
       code: 'chapter-draft-too-short',
-      message: expect.stringContaining('3000-3500字'),
+      message: expect.stringContaining('至少3000字'),
     });
   });
 
-  it('rejects chapter drafts above the target band', () => {
+  it('accepts chapter drafts above the former target band', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 1,
       projectFiles: [
@@ -198,13 +195,10 @@ describe('chapterContract', () => {
       ],
     });
 
-    expect(validation).toMatchObject({
-      ok: false,
-      message: expect.stringContaining('字数超出'),
-    });
+    expect(validation).toEqual({ ok: true });
   });
 
-  it('rejects chapter drafts that contain banned AI-flavor stock phrases', () => {
+  it('accepts otherwise valid chapter drafts that contain repairable AI-flavor stock phrases', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 1,
       projectFiles: [
@@ -221,10 +215,7 @@ describe('chapterContract', () => {
       ],
     });
 
-    expect(validation).toMatchObject({
-      ok: false,
-      message: expect.stringContaining('AI味'),
-    });
+    expect(validation).toEqual({ ok: true });
   });
 
   it('rejects chapter drafts that leak the old local fallback world when the project context uses different entities', () => {

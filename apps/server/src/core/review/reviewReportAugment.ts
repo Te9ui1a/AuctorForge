@@ -1,7 +1,6 @@
 import { chapterDraftPath, chapterLabel, chapterReviewPath } from '../paths/projectPaths';
 import { upsertTrailingSection } from '../files/markdownSections';
 import {
-  MAX_CHAPTER_DRAFT_NARRATIVE_CHARS,
   MIN_CHAPTER_DRAFT_NARRATIVE_CHARS,
   countChapterDraftNarrativeChars,
 } from '../write/chapterContract';
@@ -17,39 +16,32 @@ export function augmentChapterReviewProposal(options: {
   const reviewPath = chapterReviewPath(options.chapterNumber);
   const draftContent = options.projectFiles.find((item) => item.path === chapterDraftPath(options.chapterNumber))?.content ?? '';
   const reviewWrite = options.proposedWrites.find((item) => item.path === reviewPath);
-
-  if (!reviewWrite) {
-    const synthesizedReviewWrite = {
-      path: reviewPath,
-      content: buildMissingReviewReport(options.chapterNumber, draftContent),
-    };
-
-    return {
-      proposedWrites: [synthesizedReviewWrite, ...options.proposedWrites],
-      gate: 'pass' as ReviewGate,
-    };
-  }
+  const effectiveReviewWrite = reviewWrite ?? {
+    path: reviewPath,
+    content: buildMissingReviewReport(options.chapterNumber, draftContent),
+  };
+  const baseProposedWrites = reviewWrite ? options.proposedWrites : [effectiveReviewWrite, ...options.proposedWrites];
 
   const lint = lintAiFlavor(draftContent);
-  const lintGate = lint.blocked ? 'block' : 'pass';
-  const explicitGate = extractReviewGate(reviewWrite.content);
+  const lintGate = lint.blocked ? 'revise' : 'pass';
+  const explicitGate = extractReviewGate(effectiveReviewWrite.content);
   const narrativeChars = countChapterDraftNarrativeChars(draftContent);
-  const falseShortLengthClaim = hasFalseShortLengthClaim(reviewWrite.content, narrativeChars);
+  const falseShortLengthClaim = hasFalseShortLengthClaim(effectiveReviewWrite.content, narrativeChars);
   const correctedExplicitGate =
     falseShortLengthClaim && explicitGate === 'revise' && lintGate === 'pass'
       ? 'pass'
       : explicitGate;
   const gate = pickStrongerGate(correctedExplicitGate, lintGate);
 
-  let content = upsertReviewGate(correctFalseLengthEstimates(reviewWrite.content, narrativeChars), gate);
+  let content = upsertReviewGate(correctFalseLengthEstimates(effectiveReviewWrite.content, narrativeChars), gate);
   content = upsertTrailingSection(content, '## 字数核验（服务端补充）', [
-    `- 服务端统计：当前正文约 ${narrativeChars} 字；目标为 ${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}-${MAX_CHAPTER_DRAFT_NARRATIVE_CHARS} 字。`,
+    `- 服务端统计：当前正文约 ${narrativeChars} 字；最低要求为 ${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS} 字。`,
     falseShortLengthClaim
       ? '- 核验结论：模型原字数估算与实际正文长度不一致，已按服务端真实统计校正评级依据。'
       : '- 核验结论：审查字数依据已由服务端真实统计兜底。',
   ]);
 
-  if (lint.hits.length >= 2 || lint.blocked) {
+  if (lint.hits.length > 0) {
     const repairPlan = buildAiFlavorRepairPlan(lint);
     content = upsertTrailingSection(content, '## AI味命中明细（服务端补充）', [
       `- 服务端评级建议：${gate.toUpperCase()}`,
@@ -64,7 +56,7 @@ export function augmentChapterReviewProposal(options: {
   }
 
   return {
-    proposedWrites: options.proposedWrites.map((item) =>
+    proposedWrites: baseProposedWrites.map((item) =>
       item.path === reviewPath
         ? {
             ...item,
@@ -106,7 +98,7 @@ function correctFalseLengthEstimates(content: string, narrativeChars: number) {
   return content
     .replace(/(?:当前草稿|当前正文)?约\s*[12]\d{3}\s*字/gu, `当前正文约 ${narrativeChars} 字`)
     .replace(/仅\s*[12]\d{3}\s*字(?:左右)?/gu, `当前正文约 ${narrativeChars} 字`)
-    .replace(/距离单章\s*(?:3000\s*字左右|3000\s*-\s*3500\s*字)的标准相差甚远[。.]?/gu, '已达到单章3000-3500字的长度要求。');
+    .replace(/距离单章\s*(?:3000\s*字左右|3000\s*-\s*3500\s*字)的标准相差甚远[。.]?/gu, '已达到单章至少3000字的长度要求。');
 }
 
 function buildMissingReviewReport(chapterNumber: number, draftContent: string) {

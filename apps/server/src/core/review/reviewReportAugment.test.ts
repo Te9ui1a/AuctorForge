@@ -35,7 +35,33 @@ describe('reviewReportAugment', () => {
     );
   });
 
-  it('adds service-side AI flavor findings and upgrades the review gate when needed', () => {
+  it('adds AI flavor repair details to synthesized review reports', () => {
+    const augmented = augmentChapterReviewProposal({
+      chapterNumber: 4,
+      projectFiles: [
+        {
+          path: '4-正文/第004章_草稿.md',
+          content: '# 第004章 雨夜杀局\n\n' + '陈渊深吸一口气，沿着巷口重新核对血迹。'.repeat(80),
+        },
+      ],
+      proposedWrites: [
+        {
+          path: 'PROJECT.md',
+          content: '# PROJECT\n\n- 第004章草稿已完成，等待审查。',
+        },
+      ],
+    });
+
+    const report = augmented.proposedWrites.find((item) => item.path === '5-审查/第004章_审查报告.md')?.content ?? '';
+
+    expect(augmented.gate).toBe('revise');
+    expect(report).toContain('审查评级：REVISE');
+    expect(report).toContain('## AI味命中明细（服务端补充）');
+    expect(report).toContain('禁用套话');
+    expect(report).toContain('## 局部改写任务（服务端补充）');
+  });
+
+  it('adds service-side AI flavor findings and raises false PASS ratings to REVISE', () => {
     const augmented = augmentChapterReviewProposal({
       chapterNumber: 1,
       projectFiles: [
@@ -58,13 +84,44 @@ describe('reviewReportAugment', () => {
       ],
     });
 
-    expect(augmented.gate).toBe('block');
-    expect(augmented.proposedWrites[0]?.content).toContain('审查评级：BLOCK');
+    expect(augmented.gate).toBe('revise');
+    expect(augmented.proposedWrites[0]?.content).toContain('审查评级：REVISE');
     expect(augmented.proposedWrites[0]?.content).toContain('## AI味命中明细（服务端补充）');
     expect(augmented.proposedWrites[0]?.content).toContain('高频比喻');
     expect(augmented.proposedWrites[0]?.content).toContain('## 局部改写任务（服务端补充）');
     expect(augmented.proposedWrites[0]?.content).toContain('改写策略');
     expect(augmented.proposedWrites[0]?.content).toContain('不要整章重写');
+  });
+
+  it('adds non-blocking repair guidance for a single warning-level AI flavor hit', () => {
+    const augmented = augmentChapterReviewProposal({
+      chapterNumber: 2,
+      projectFiles: [
+        {
+          path: '4-正文/第002章_草稿.md',
+          content: [
+            '# 第002章 借势藏锋',
+            '',
+            '这意味着他已经没有退路，只能把账册重新压回袖中。',
+          ].join('\n'),
+        },
+      ],
+      proposedWrites: [
+        {
+          path: '5-审查/第002章_审查报告.md',
+          content: '# 第002章 审查报告\n\n- 审查评级：PASS\n\n## 结论\n- 可以继续下一章。',
+        },
+      ],
+    });
+
+    const report = augmented.proposedWrites[0]?.content ?? '';
+
+    expect(augmented.gate).toBe('pass');
+    expect(report).toContain('审查评级：PASS');
+    expect(report).toContain('## AI味命中明细（服务端补充）');
+    expect(report).toContain('解释性旁白');
+    expect(report).toContain('这意味着他已经没有退路');
+    expect(report).toContain('## 局部改写任务（服务端补充）');
   });
 
   it('corrects false model word-count estimates with deterministic chapter length data', () => {

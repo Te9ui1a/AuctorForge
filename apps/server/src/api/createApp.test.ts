@@ -5859,7 +5859,7 @@ describe('createApp', () => {
     await propose(app, '请审查第一章草稿。');
     await approve(app);
 
-    const continueResponse = await propose(app, '继续，开始写第2章正文。必须一章一章写，只写第2章；正文必须3000-3500字。');
+    const continueResponse = await propose(app, '继续，开始写第2章正文。必须一章一章写，只写第2章；正文必须至少3000字。');
 
     expect(JSON.parse(continueResponse.body)).toMatchObject({
       session: {
@@ -6096,6 +6096,66 @@ describe('createApp', () => {
       pendingProposal: null,
     });
     expect(JSON.parse(response.body).reply).toContain('超出当前章纲范围');
+
+    await app.close();
+  });
+
+  it('keeps chapter draft proposals visible when only AI-flavor repair is needed', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await completeDefine(app);
+    await completeIdeation(app);
+    await completeOutline(app);
+
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  reply: '已生成第001章草稿。',
+                  proposedWrites: [
+                    {
+                      path: '4-正文/第001章_草稿.md',
+                      content:
+                        '# 第001章 夹缝求生\n\n'
+                        + '沈砚深吸一口气，沿着废巷把每一处血铁线索重新核对。'.repeat(190),
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      })),
+    );
+
+    const response = await propose(app, '开始写第一章正文。');
+    const body = JSON.parse(response.body);
+
+    expect(body).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-draft',
+        waitingForApproval: true,
+      },
+      pendingProposal: {
+        proposedWrites: [
+          expect.objectContaining({
+            path: '4-正文/第001章_草稿.md',
+            content: expect.stringContaining('深吸一口气'),
+          }),
+        ],
+      },
+    });
+    expect(body.reply).toContain('已生成待确认提案');
+    expect(body.reply).toContain('AI味');
 
     await app.close();
   });
@@ -6462,7 +6522,7 @@ describe('createApp', () => {
       },
       pendingProposal: null,
     });
-    expect(JSON.parse(response.body).reply).toContain('3000-3500字');
+    expect(JSON.parse(response.body).reply).toContain('至少3000字');
 
     await app.close();
   });
@@ -6519,7 +6579,7 @@ describe('createApp', () => {
       },
       pendingProposal: null,
     });
-    expect(JSON.parse(response.body).reply).toContain('3000-3500字');
+    expect(JSON.parse(response.body).reply).toContain('至少3000字');
 
     await app.close();
   });
@@ -6638,7 +6698,7 @@ describe('createApp', () => {
     );
 
     const proposalResponse = await propose(app, '请审查第一章草稿。');
-    expect(JSON.parse(proposalResponse.body).pendingProposal.proposedWrites[0].content).toContain('审查评级：BLOCK');
+    expect(JSON.parse(proposalResponse.body).pendingProposal.proposedWrites[0].content).toContain('审查评级：REVISE');
     expect(JSON.parse(proposalResponse.body).pendingProposal.proposedWrites[0].content).toContain(
       '## AI味命中明细（服务端补充）',
     );

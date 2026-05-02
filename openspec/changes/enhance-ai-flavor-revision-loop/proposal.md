@@ -9,6 +9,7 @@ This change makes AI-flavor reduction more actionable and less destructive by ex
 - Expand AI-flavor detection from a short hard-coded list into a categorized rule library covering cliche phrases, empty emotion words, explanatory narration, mechanical transitions, overused similes, bookish dialogue, low-density paragraphs, and improper English mixing.
 - Introduce a writing replacement planner that maps each hit category to scene-aware rewrite strategies rather than only telling the model what not to say.
 - Add a local repair loop that selects only affected sentence/paragraph spans, generates patch-sized rewrite tasks, reapplies lint after repair, and avoids whole-chapter rewrites unless local repair cannot preserve the chapter.
+- Defer AI-flavor findings from chapter draft validation into review/revision reporting so drafts remain visible and editable instead of being rejected before the user can inspect them.
 - Preserve the current review-report behavior while enriching "AI味专项检查" and "局部改写任务" with hit locations, rewrite strategy, and verification status.
 - Add focused tests for rule categorization, replacement-plan generation, local repair scope, and regression cases where clean prose should not be blocked.
 

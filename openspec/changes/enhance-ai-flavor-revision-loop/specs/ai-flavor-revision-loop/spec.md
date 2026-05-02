@@ -102,6 +102,16 @@ The system SHALL enrich AI-flavor review sections with evidence, category, strat
 - **THEN** the "AI味专项检查" section lists issue categories and representative original snippets
 - **AND** the "局部改写任务" section includes scoped repair instructions and acceptance checks
 
+#### Scenario: Single AI-flavor hit still produces repair guidance
+- **WHEN** a review command evaluates a chapter with one AI-flavor hit
+- **THEN** the service-side review supplement includes an "AI味命中明细" section
+- **AND** the "局部改写任务" section contains a scoped repair instruction for that hit
+
+#### Scenario: Synthesized review report still includes AI-flavor repair guidance
+- **WHEN** the assistant proposes no chapter review report and the service synthesizes one for the current chapter
+- **AND** the draft contains AI-flavor hits
+- **THEN** the synthesized review report includes service-side AI-flavor details and local repair tasks
+
 ### Requirement: Local repair remains approval-controlled
 
 The system SHALL propose local repairs through the existing approval/write flow and SHALL NOT automatically overwrite chapter files only because AI-flavor lint found issues.
@@ -110,3 +120,22 @@ The system SHALL propose local repairs through the existing approval/write flow 
 - **WHEN** a chapter draft triggers repairable AI-flavor hits
 - **THEN** the system can produce repair tasks or a pending proposal
 - **AND** the draft file is not automatically modified without the normal approval/write step
+
+### Requirement: AI-flavor findings do not block draft generation
+
+The system SHALL keep otherwise valid chapter draft proposals visible and editable when AI-flavor lint finds repairable issues.
+
+#### Scenario: Draft proposal contains a blocking AI-flavor phrase
+- **WHEN** a chapter draft proposal targets the current chapter, matches the chapter plan, satisfies the minimum narrative length, and contains a configured AI-flavor blocking phrase
+- **THEN** chapter draft validation accepts the proposal
+- **AND** the user can inspect and approve the draft instead of receiving a draft-generation failure
+
+#### Scenario: Review maps blocking AI-flavor-only issues to revision
+- **WHEN** a service-side review supplement finds blocking AI-flavor hits in an otherwise reviewable chapter
+- **THEN** the review gate is raised to `REVISE` rather than `BLOCK` solely because of AI-flavor hits
+- **AND** the report includes local repair tasks before the chapter is finalized
+
+#### Scenario: Review keeps warning-level AI-flavor notes non-blocking
+- **WHEN** a service-side review supplement finds only warning-level AI-flavor hits
+- **THEN** the review gate can remain `PASS`
+- **AND** the report still includes local repair guidance for those hits

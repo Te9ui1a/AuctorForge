@@ -2,7 +2,6 @@ import { normalizeProjectPath } from '../compat/rules';
 import type { ProposedWrite } from '../chat/assistantProposalTypes';
 import { ROLE_TABLE_PATH, VOLUME_CHAPTER_OUTLINE_PATH, chapterDraftPath, chapterLabel } from '../paths/projectPaths';
 import { DEFAULT_VOLUME_NUMBER } from '../paths/volumeContext';
-import { lintAiFlavor } from './aiFlavorLint';
 import { parseChapterNumberFromDraftPath, resolveChapterPlanFromProjectFiles } from './chapterPlanResolver';
 
 type OutlineChapter = {
@@ -18,15 +17,12 @@ export type ChapterDraftValidationCode =
   | 'chapter-draft-heading-mismatch'
   | 'chapter-draft-title-mismatch'
   | 'chapter-draft-too-short'
-  | 'chapter-draft-ai-flavor'
   | 'chapter-draft-early-finale'
-  | 'chapter-draft-context-drift'
-  | 'chapter-draft-too-long';
+  | 'chapter-draft-context-drift';
 
 const EARLY_FINALE_PATTERN = /(大结局|终章|完结章|最终章|全书完|故事完结)/u;
 export const TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS = 3200;
 export const MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 3000;
-export const MAX_CHAPTER_DRAFT_NARRATIVE_CHARS = 3500;
 
 export function parseOutlineChapters(chapterOutline: string): OutlineChapter[] {
   return chapterOutline
@@ -137,16 +133,7 @@ export function validateChapterDraftProposal(options: {
     return {
       ok: false,
       code: 'chapter-draft-too-short',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿字数不足：当前正文约 ${narrativeChars} 字，必须写到${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}-${MAX_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请扩写为完整正文。`,
-    } as const;
-  }
-
-  const lint = lintAiFlavor(draftWrite.content);
-  if (lint.blocked) {
-    return {
-      ok: false,
-      code: 'chapter-draft-ai-flavor',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿AI味过重：命中${lint.hits.map((hit) => hit.label).join('、')}，请清理禁词和套路化表达后重新生成。`,
+      message: `${chapterLabel(options.currentChapterNumber)}草稿字数不足：当前正文约 ${narrativeChars} 字，必须至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请扩写为完整正文。`,
     } as const;
   }
 
@@ -168,14 +155,6 @@ export function validateChapterDraftProposal(options: {
       ok: false,
       code: 'chapter-draft-context-drift',
       message: `${chapterLabel(options.currentChapterNumber)}草稿与项目设定不一致：${contextDrift}，请重新生成本章草稿。`,
-    } as const;
-  }
-
-  if (narrativeChars > MAX_CHAPTER_DRAFT_NARRATIVE_CHARS) {
-    return {
-      ok: false,
-      code: 'chapter-draft-too-long',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿字数超出：当前正文约 ${narrativeChars} 字，目标为${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}-${MAX_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请压缩为完整但克制的正文。`,
     } as const;
   }
 

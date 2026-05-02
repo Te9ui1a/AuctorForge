@@ -21,7 +21,6 @@ import {
 } from '../paths/projectPaths';
 import { DEFAULT_VOLUME_NUMBER, parseVolumeNumberFromPath } from '../paths/volumeContext';
 import {
-  MAX_CHAPTER_DRAFT_NARRATIVE_CHARS,
   TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS,
   countChapterDraftNarrativeChars,
 } from '../write/chapterContract';
@@ -342,9 +341,7 @@ function buildWriteDraft(targetPath: string, idea: string, projectFiles: BuiltPr
     '',
   ];
 
-  return clampChapterDraftTargetLength(
-    ensureChapterDraftTargetLength(draftSections.join('\n'), chapterPlan.title, protagonist),
-  );
+  return ensureChapterDraftTargetLength(draftSections.join('\n'), chapterPlan.title, protagonist);
 }
 
 function buildReviewDraft(
@@ -774,31 +771,6 @@ function ensureChapterDraftTargetLength(content: string, title = '', protagonist
   return `${nextSections.join('\n').trimEnd()}\n`;
 }
 
-function clampChapterDraftTargetLength(content: string) {
-  if (countChapterDraftNarrativeChars(content) <= MAX_CHAPTER_DRAFT_NARRATIVE_CHARS) {
-    return content;
-  }
-
-  const paragraphs = content.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
-  const heading = paragraphs[0] ?? '';
-  const body = paragraphs.slice(1);
-  const selected = [heading];
-
-  for (const paragraph of body) {
-    const candidate = [...selected, paragraph].join('\n\n');
-    if (
-      countChapterDraftNarrativeChars(candidate) > MAX_CHAPTER_DRAFT_NARRATIVE_CHARS
-      && countChapterDraftNarrativeChars(selected.join('\n\n')) >= TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS
-    ) {
-      break;
-    }
-
-    selected.push(paragraph);
-  }
-
-  return `${selected.join('\n\n').trimEnd()}\n`;
-}
-
 function cleanSceneBeat(scene: string) {
   return cleanNarrativeText(
     scene
@@ -881,7 +853,7 @@ function detectChapterReviewIssues(chapterDraft: string, userPrompt: string) {
     issues.push(
       `- 正文长度不足：当前正文约 ${narrativeLength} 字，段落数量 ${paragraphCount}，更像压缩章纲或剧情梗概，缺少完整场景推进。`,
     );
-    issues.push('- 压缩章纲感明显：冲突、诱敌、反杀和钩子都被概括性带过，需要整章扩写到3000-3500字。');
+    issues.push('- 压缩章纲感明显：冲突、诱敌、反杀和钩子都被概括性带过，需要整章扩写到至少3000字。');
   }
 
   return issues;
