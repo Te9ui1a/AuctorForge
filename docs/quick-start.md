@@ -71,11 +71,11 @@ pnpm test:e2e:install
 
 ## First Trial
 
-Use fictional content for your first trial:
+Use the built-in fictional sample for your first trial:
 
 - Project: Lantern Road
-- Protagonist: Lin Zhao, a junior talisman maker
-- Goal: find a missing mentor
-- First arc: investigate a border-town mine anomaly
+- Protagonist: Lin Zhao, a young lantern keeper
+- Goal: reopen a closed trade road
+- First arc: investigate why every gate lantern in a border-town went dark
 
-This lets you evaluate the workflow without exposing private manuscript material.
+On the startup screen, choose **试用示例项目**. AuctorForge creates the sample under your local app configuration directory and opens it like a normal project. This lets you evaluate the workflow without exposing private manuscript material.

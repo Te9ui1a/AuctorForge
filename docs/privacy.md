@@ -23,6 +23,8 @@ The app works with local project files and workflow assets. Before using valuabl
 - Whether backups exist
 - How to export your work
 
+On first run, AuctorForge can create a fictional Lantern Road sample project. Use that sample to inspect the workbench, file tree, and editor before pointing the app at real drafts.
+
 ## Remote Model Providers
 
 If a feature calls a remote model service, the service may receive text from your project. Depending on the feature, that may include chapter drafts, outlines, character notes, review instructions, or chat messages.
@@ -33,6 +35,8 @@ Before enabling a model provider:
 - Test with fictional content
 - Avoid pasting private full manuscripts until you trust the setup
 - Keep API keys out of Git
+
+You can browse and edit local projects before model-provider credentials are configured.
 
 ## Public Repository Checklist
 

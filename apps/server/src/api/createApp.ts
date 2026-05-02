@@ -1,6 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
+import { mkdir, appendFile, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
+import path from 'node:path';
 
 import Fastify, { type FastifyReply } from 'fastify';
 import type { SessionResponse } from 'shared';
@@ -810,6 +812,32 @@ export function createApp({
         skillPackPath,
       });
 
+      await reconcileActiveProjectWithStore(result.store);
+
+      return {
+        activeProjectId: result.store.activeProjectId,
+        project: await readProjectCard(result.entry),
+        session: buildSessionResponse(),
+      };
+    } catch (error) {
+      return sendLifecycleError(reply, error);
+    }
+  });
+
+  app.post('/api/projects/sample', async (_request, reply) => {
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+
+    try {
+      const result = await createProject({
+        userConfigDir,
+        rootPath: sampleRoot,
+        displayName: 'Lantern Road',
+        entryMode: 'create',
+        skillPackPath,
+        createProjectId: () => 'sample_lantern_road',
+      });
+
+      await writeSampleProjectFiles(sampleRoot);
       await reconcileActiveProjectWithStore(result.store);
 
       return {
@@ -3034,6 +3062,76 @@ function resolveReviewSubstepId(message: string, module: string) {
   }
 
   return null;
+}
+
+async function writeSampleProjectFiles(projectRoot: string) {
+  await mkdir(path.join(projectRoot, '2-设定'), { recursive: true });
+  await mkdir(path.join(projectRoot, '3-大纲'), { recursive: true });
+  await mkdir(path.join(projectRoot, '4-正文'), { recursive: true });
+
+  const projectIndexPath = path.join(projectRoot, 'PROJECT.md');
+  const projectIndex = await readFile(projectIndexPath, 'utf8');
+  if (!projectIndex.includes('## 示例项目：Lantern Road')) {
+    await appendFile(
+      projectIndexPath,
+      [
+        '',
+        '',
+        '## 示例项目：Lantern Road',
+        '',
+        '这是 AuctorForge 内置的虚构示例，只用于熟悉本地项目结构、章节编辑和工作流切换。',
+        '故事围绕 Lin Zhao 在 border-town 找回失落灯匠手稿展开。',
+      ].join('\n'),
+      'utf8',
+    );
+  }
+
+  await writeFile(
+    path.join(projectRoot, '2-设定/2.4_主要角色设定表.md'),
+    [
+      '# 主要角色设定表',
+      '',
+      '## Lin Zhao',
+      '',
+      '- 身份：年轻灯匠，负责维护边城旧路上的引路灯。',
+      '- 外在目标：找回失落的灯匠手稿，让商队重新通过 Lantern Road。',
+      '- 内在冲突：害怕自己的判断会再次让同伴置身险境。',
+      '',
+      '## Mira Chen',
+      '',
+      '- 身份：边城书记员，熟悉旧档案和商路税册。',
+      '- 作用：提供线索，也不断质疑 Lin Zhao 的冒进。',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await writeFile(
+    path.join(projectRoot, '3-大纲/第01卷_章纲.md'),
+    [
+      '# 第01卷章纲',
+      '',
+      '1. 旧灯熄灭：Lin Zhao 在 border-town 收到一盏不会熄灭的灯。',
+      '2. 手稿线索：Mira Chen 在档案室发现被涂黑的商路记录。',
+      '3. 夜路试行：两人沿 Lantern Road 进入无人驿站。',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await writeFile(
+    path.join(projectRoot, '4-正文/第001章_样章.md'),
+    [
+      '# 第001章 样章',
+      '',
+      'The border-town woke before sunrise, not because of bells, but because every lantern on the eastern gate had gone dark at once.',
+      '',
+      'Lin Zhao stood beneath the last working lamp and listened to the glass hum. The sound was too steady for wind, too patient for fire.',
+      '',
+      '"If this road opens again," Mira Chen said, folding the old map under one arm, "someone will ask why it was closed."',
+      '',
+      'Lin Zhao looked toward Lantern Road, where the morning fog held its shape like a locked door.',
+    ].join('\n'),
+    'utf8',
+  );
 }
 
 async function findMissingProjectFiles(projectRoot: string, filePaths: string[]) {

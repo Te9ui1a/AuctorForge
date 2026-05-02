@@ -22,6 +22,7 @@ if (!document.head.querySelector('[data-test-styles="startup-layout-contract"]')
 
 vi.mock('./projectApi', () => ({
   archiveProject: vi.fn(),
+  createSampleProject: vi.fn(),
   fetchRecentProjects: vi.fn(),
   createProject: vi.fn(),
   importProject: vi.fn(),
@@ -95,6 +96,63 @@ describe('StartupScreen', () => {
     expect(screen.getByRole('button', { name: '开始一个新故事' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '模型配置' })).toBeInTheDocument();
+  });
+
+  it('shows first-run guidance without blocking launcher actions', () => {
+    render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
+
+    const guidance = screen.getByRole('region', { name: '首次使用建议' });
+    expect(within(guidance).getByText('先用虚构示例试跑，再放入真实稿件。')).toBeInTheDocument();
+    expect(within(guidance).getByText('项目资料默认保存在你选择的本地文件夹。')).toBeInTheDocument();
+    expect(within(guidance).getByText('模型配置前，可以先浏览和编辑本地项目。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '开始一个新故事' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '试用示例项目' })).toBeInTheDocument();
+  });
+
+  it('lets writers dismiss first-run guidance while keeping launcher actions available', () => {
+    render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '隐藏建议' }));
+
+    expect(screen.queryByRole('region', { name: '首次使用建议' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '开始一个新故事' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
+  });
+
+  it('creates the fictional sample project and enters the workbench', async () => {
+    vi.mocked(projectApi.createSampleProject).mockResolvedValue({
+      id: 'sample-lantern-road',
+      name: 'Lantern Road',
+      rootPath: '/tmp/auctorforge-sample',
+      lastModified: Date.now(),
+      status: 'active',
+      phase: '示例阶段',
+      coreTask: '熟悉工作台',
+    });
+
+    render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '试用示例项目' }));
+
+    await waitFor(() => {
+      expect(projectApi.createSampleProject).toHaveBeenCalledTimes(1);
+      expect(mockOnStart).toHaveBeenCalledWith('create', 'sample-lantern-road');
+      expect(screen.getByText('已选择项目 · Lantern Road')).toBeInTheDocument();
+    });
+  });
+
+  it('offers sample, create, and import actions when no recent projects exist', async () => {
+    vi.mocked(projectApi.fetchRecentProjects).mockResolvedValue([]);
+
+    render(<StartupScreen onStart={mockOnStart} onOpenSettings={mockOnOpenSettings} isStarting={false} />);
+
+    await screen.findByText('还没有项目');
+
+    expect(screen.getByText('可以先试用示例项目，或者创建/导入自己的本地项目。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '试用示例项目' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '开始一个新故事' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
   });
 
   it('presents AuctorForge as the product identity instead of the old working title', () => {
@@ -285,6 +343,7 @@ describe('StartupScreen', () => {
     expect(within(createDialog).getByText('选择文件夹')).toBeInTheDocument();
     expect(within(createDialog).getByText('取消')).toBeInTheDocument();
     expect(within(createDialog).getByText('创建故事项目')).toBeInTheDocument();
+    expect(within(createDialog).getByText('这个文件夹会保存本地项目资料；不配置模型也可以先浏览和编辑。')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('故事名称'), { target: { value: '未命名项目' } });
     fireEvent.click(screen.getByText('选择文件夹'));
 

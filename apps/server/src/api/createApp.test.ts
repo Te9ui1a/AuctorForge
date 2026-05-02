@@ -212,6 +212,58 @@ describe('createApp', () => {
     await app.close();
   });
 
+  it('POST /api/projects/sample creates and opens a fictional sample project', async () => {
+    const userConfigDir = await makeWorkspace();
+    const app = createApp({ skillPackPath, userConfigDir });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/sample',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+    expect(body).toMatchObject({
+      activeProjectId: 'sample_lantern_road',
+      project: expect.objectContaining({
+        id: 'sample_lantern_road',
+        displayName: 'Lantern Road',
+        rootPath: path.resolve(sampleRoot),
+        status: 'ready',
+      }),
+    });
+    await expect(readFile(path.join(sampleRoot, 'PROJECT.md'), 'utf8')).resolves.toContain('Lantern Road');
+    await expect(readFile(path.join(sampleRoot, '2-设定', '2.4_主要角色设定表.md'), 'utf8')).resolves.toContain('Lin Zhao');
+    await expect(readFile(path.join(sampleRoot, '4-正文', '第001章_样章.md'), 'utf8')).resolves.toContain('border-town');
+
+    await app.close();
+  });
+
+  it('POST /api/projects/sample reopens the existing sample without duplicating the index note', async () => {
+    const userConfigDir = await makeWorkspace();
+    const app = createApp({ skillPackPath, userConfigDir });
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/projects/sample',
+    });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/sample',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+    expect(body.activeProjectId).toBe('sample_lantern_road');
+    expect(body.project.rootPath).toBe(path.resolve(sampleRoot));
+    const projectIndex = await readFile(path.join(sampleRoot, 'PROJECT.md'), 'utf8');
+    expect(projectIndex.match(/## 示例项目：Lantern Road/g)).toHaveLength(1);
+
+    await app.close();
+  });
+
   it('POST /api/projects/open switches active project and resets live memory state', async () => {
     const userConfigDir = await makeWorkspace();
     const projectsRoot = await makeWorkspace();

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '../../components/ui/input';
 import { SettingsGlyph } from '../layout/SettingsGlyph';
 import { ProjectInfo } from './projectTypes';
-import { archiveProject, createProject, fetchRecentProjects, importProject, pickProjectFolder, removeProject, repairProject } from './projectApi';
+import { archiveProject, createProject, createSampleProject, fetchRecentProjects, importProject, pickProjectFolder, removeProject, repairProject } from './projectApi';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { StartupBrandMark } from './StartupBrandMark';
 import { StartupGlyph } from './StartupGlyph';
@@ -63,6 +63,8 @@ export function StartupScreen({
   const [draftRootPath, setDraftRootPath] = useState('');
   const [isPickingFolder, setIsPickingFolder] = useState(false);
   const [isSubmittingProject, setIsSubmittingProject] = useState(false);
+  const [isCreatingSampleProject, setIsCreatingSampleProject] = useState(false);
+  const [isOnboardingVisible, setIsOnboardingVisible] = useState(true);
   const selectedProjectId = controlledSelectedProjectId ?? internalSelectedProjectId;
   const isManagerOpen = controlledIsManagerOpen ?? internalIsManagerOpen;
 
@@ -191,6 +193,22 @@ export function StartupScreen({
     }
   };
 
+  const handleStartSampleProject = async () => {
+    try {
+      setIsCreatingSampleProject(true);
+      const project = await createSampleProject();
+      setProjects((prev) => [project, ...prev.filter((entry) => entry.id !== project.id)]);
+      updateSelectedProjectId(project.id);
+      setProjectError('');
+      await onStart('create', project.id);
+    } catch (error) {
+      console.error('Failed to create sample project:', error);
+      setProjectError('示例项目启动失败，请稍后重试。');
+    } finally {
+      setIsCreatingSampleProject(false);
+    }
+  };
+
   const handleRepairProject = async (project: ProjectInfo) => {
     try {
       const repairedProject = await repairProject(project.id);
@@ -287,14 +305,14 @@ export function StartupScreen({
           </div>
         </div>
         <nav className="startup-top-nav-links" aria-label="首页导航">
-          <Button variant="ghost" size="sm" className="startup-nav-link startup-nav-link--button px-4 text-xs sm:text-sm" onClick={showRecentProjects}>
+          <Button variant="ghost" size="sm" className="startup-nav-link startup-nav-link--button px-4 text-xs sm:text-sm" data-ui-control-tier="quiet" onClick={showRecentProjects}>
             最近项目
           </Button>
-          <Button variant="ghost" size="sm" className="startup-nav-link startup-nav-link--button px-4 text-xs sm:text-sm" aria-expanded={isManagerOpen} aria-controls="startup-management-panel" onClick={toggleManagementPanel}>
+          <Button variant="ghost" size="sm" className="startup-nav-link startup-nav-link--button px-4 text-xs sm:text-sm" data-ui-control-tier="quiet" aria-expanded={isManagerOpen} aria-controls="startup-management-panel" onClick={toggleManagementPanel}>
             <StartupGlyph name="panels" />
             管理项目
           </Button>
-          <Button variant="ghost" size="sm" className="startup-nav-settings rounded-[var(--radius-md)] px-4 text-xs sm:text-sm" onClick={onOpenSettings}>
+          <Button variant="ghost" size="sm" className="startup-nav-settings rounded-[var(--radius-md)] px-4 text-xs sm:text-sm" data-ui-control-tier="quiet" onClick={onOpenSettings}>
             <span className="settings-trigger-icon"><SettingsGlyph /></span>
             模型配置
           </Button>
@@ -316,11 +334,11 @@ export function StartupScreen({
               新建、导入，或者继续上次的项目。
             </p>
             <div className="startup-hero-actions">
-              <Button size="lg" className="rounded-[var(--radius-md)] px-5 shadow-none" onClick={openCreateSheet} disabled={isStarting}>
+              <Button size="lg" className="rounded-[var(--radius-md)] px-5 shadow-none" data-ui-control-tier="primary" onClick={openCreateSheet} disabled={isStarting}>
                 <StartupGlyph name="spark" />
                 开始一个新故事
               </Button>
-              <Button variant="secondary" size="lg" className="rounded-[var(--radius-md)] px-5 shadow-none" onClick={openImportSheet} disabled={isStarting}>
+              <Button variant="secondary" size="lg" className="rounded-[var(--radius-md)] px-5 shadow-none" data-ui-control-tier="supporting" onClick={openImportSheet} disabled={isStarting}>
                 <StartupGlyph name="upload" />
                 导入旧稿继续写
               </Button>
@@ -329,6 +347,30 @@ export function StartupScreen({
           <StartupProductPreview />
         </div>
       </section>
+
+      {isOnboardingVisible ? (
+        <section className="startup-onboarding" aria-label="首次使用建议" data-entry-surface="author-onboarding">
+          <div className="startup-onboarding-copy">
+            <Badge variant="outline" className="w-fit rounded-full border-border/80 bg-background/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              第一次打开
+            </Badge>
+            <ul className="startup-onboarding-list">
+              <li>先用虚构示例试跑，再放入真实稿件。</li>
+              <li>项目资料默认保存在你选择的本地文件夹。</li>
+              <li>模型配置前，可以先浏览和编辑本地项目。</li>
+            </ul>
+          </div>
+          <div className="startup-onboarding-actions">
+            <Button variant="secondary" className="rounded-[var(--radius-md)] px-4 shadow-none" onClick={handleStartSampleProject} disabled={isStarting || isCreatingSampleProject}>
+              <StartupGlyph name="sample" />
+              {isCreatingSampleProject ? '准备示例中…' : '试用示例项目'}
+            </Button>
+            <Button variant="ghost" className="rounded-[var(--radius-md)] px-4" onClick={() => setIsOnboardingVisible(false)}>
+              隐藏建议
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       {projectError ? <div className="startup-error" role="alert" aria-live="polite">{projectError}</div> : null}
 
@@ -348,7 +390,8 @@ export function StartupScreen({
             <div className="grid gap-2">
               <DialogTitle>{isCreateSheet ? '开始一个新故事' : '导入旧稿继续写'}</DialogTitle>
               <DialogDescription>
-                {isCreateSheet ? '选择故事名称和项目目录。' : '选择旧稿目录，可选填写显示名称。'}
+                <span>{isCreateSheet ? '选择故事名称和项目目录。' : '选择旧稿目录，可选填写显示名称。'}</span>
+                <span className="block">这个文件夹会保存本地项目资料；不配置模型也可以先浏览和编辑。</span>
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -407,15 +450,22 @@ export function StartupScreen({
               {isLoading ? (
                 <div className="startup-loading">加载中...</div>
               ) : (
-                <ProjectManagerPanel
-                  title="最近项目"
-                  subtitle="选择一个项目继续写。"
-                  projects={projects}
-                  onSelectProject={(p) => updateSelectedProjectId(p.id)}
-                  onContinueProject={(project) => void onStart('create', project.id)}
-                  selectedProjectId={selectedProjectId || undefined}
-                  variant="recent"
-                />
+                projects.length === 0 ? (
+                  <div className="startup-empty-state" role="status">
+                    <strong>还没有项目</strong>
+                    <p>可以先试用示例项目，或者创建/导入自己的本地项目。</p>
+                  </div>
+                ) : (
+                  <ProjectManagerPanel
+                    title="最近项目"
+                    subtitle="选择一个项目继续写。"
+                    projects={projects}
+                    onSelectProject={(p) => updateSelectedProjectId(p.id)}
+                    onContinueProject={(project) => void onStart('create', project.id)}
+                    selectedProjectId={selectedProjectId || undefined}
+                    variant="recent"
+                  />
+                )
               )}
             </section>
 

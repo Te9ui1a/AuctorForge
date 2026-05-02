@@ -43,6 +43,15 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectI
   return mapBackendProject('project' in data ? data.project : data);
 }
 
+export async function createSampleProject(): Promise<ProjectInfo> {
+  const response = await fetch('/api/projects/sample', {
+    method: 'POST',
+  });
+  await ensureOk(response, 'Failed to create sample project');
+  const data = await response.json() as { project: BackendProjectSummary } | BackendProjectSummary;
+  return mapBackendProject('project' in data ? data.project : data);
+}
+
 export async function pickProjectFolder(input: { purpose: 'create' | 'import'; defaultPath?: string }): Promise<string | null> {
   const response = await fetch('/api/projects/pick-folder', {
     method: 'POST',

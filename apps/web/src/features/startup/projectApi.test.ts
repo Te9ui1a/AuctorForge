@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createProject, fetchRecentProjects, pickProjectFolder } from './projectApi';
+import { createProject, createSampleProject, fetchRecentProjects, pickProjectFolder } from './projectApi';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -110,6 +110,40 @@ describe('projectApi', () => {
       status: 'active',
       phase: null,
       coreTask: null,
+    });
+  });
+
+  it('posts sample-project request and maps created sample response', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        activeProjectId: 'sample_lantern_road',
+        project: {
+          id: 'sample_lantern_road',
+          displayName: 'Lantern Road',
+          rootPath: '/tmp/auctorforge-sample',
+          status: 'ready',
+          phase: '示例阶段',
+          coreTask: '熟悉工作台',
+          nextSuggestion: null,
+          currentChapterNumber: null,
+          lastOpenedAt: '2026-05-02T00:00:00.000Z',
+          lastOpenedDocument: null,
+        },
+      }),
+    });
+
+    const project = await createSampleProject();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/sample', { method: 'POST' });
+    expect(project).toEqual({
+      id: 'sample_lantern_road',
+      name: 'Lantern Road',
+      rootPath: '/tmp/auctorforge-sample',
+      lastModified: new Date('2026-05-02T00:00:00.000Z').getTime(),
+      status: 'active',
+      phase: '示例阶段',
+      coreTask: '熟悉工作台',
     });
   });
 
