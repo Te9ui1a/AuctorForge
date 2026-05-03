@@ -47,7 +47,7 @@ describe('buildGuideProposal', () => {
   it('scans legacy files, proposes migration into the standard paths, and recommends the next module', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '旧设定.md'), '# 旧设定\n\n世界观：宗门林立。', 'utf8');
+    await writeFile(path.join(workspaceRoot, '旧设定.md'), '# 旧设定\n\n世界观：组织体系甲。', 'utf8');
     await writeFile(
       path.join(workspaceRoot, '旧章纲.md'),
       '第1章：旧章纲开篇\n\n**章节梗概**：先活下来。\n\n**场景拆解**：\n- 场景1：旧势力逼近',
@@ -92,7 +92,7 @@ describe('buildGuideProposal', () => {
   it('asks for explicit mapping when multiple candidate files match the same asset type', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '旧设定A.md'), '# 旧设定A\n\n世界观：宗门林立。', 'utf8');
+    await writeFile(path.join(workspaceRoot, '旧设定A.md'), '# 旧设定A\n\n世界观：组织体系甲。', 'utf8');
     await writeFile(path.join(workspaceRoot, '旧设定B.md'), '# 旧设定B\n\n世界观：仙朝治世。', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');

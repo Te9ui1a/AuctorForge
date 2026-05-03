@@ -31,7 +31,7 @@ describe('buildAnalyzeProposal', () => {
 
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -103,7 +103,7 @@ describe('buildAnalyzeProposal', () => {
   it('detects sample books placed under 1-边界 as described by the workflow', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '1-边界', '样板书.txt'), '第一章 破庙雨夜', 'utf8');
+    await writeFile(path.join(workspaceRoot, '1-边界', '样板书.txt'), '第一章 开局事件', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');
     const proposal = await buildAnalyzeProposal({
@@ -121,7 +121,7 @@ describe('buildAnalyzeProposal', () => {
 
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。\n第二章 初试金手指\n铜钱能预知短暂未来，让主角躲过追杀。\n第三章 反杀追兵\n主角借势反杀，建立第一轮期待。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。\n第二章 初试差异化能力\n线索甲能预知短暂未来，让主角躲过外部压力。\n第三章 阶段反转\n主角借势阶段反转，建立第一轮期待。',
       'utf8',
     );
 
@@ -160,7 +160,7 @@ describe('buildAnalyzeProposal', () => {
     });
     expect(
       tropeProposal.proposedWrites.find((item) => item.path === '1-边界/1.3_套路方向.md')?.content,
-    ).toContain('神秘铜钱');
+    ).toContain('线索甲');
 
     const frameworkProposal = await buildAnalyzeProposal({
       projectRoot: workspaceRoot,
@@ -199,7 +199,7 @@ describe('buildAnalyzeProposal', () => {
     const workspaceRoot = await makeWorkspace();
 
     await writeFile(path.join(workspaceRoot, '样板书A.txt'), '第一章 旧书开场\n主角捡到木剑。', 'utf8');
-    await writeFile(path.join(workspaceRoot, '样板书B.txt'), '第一章 新书开场\n主角捡到神秘铜钱。', 'utf8');
+    await writeFile(path.join(workspaceRoot, '样板书B.txt'), '第一章 新书开场\n主角捡到线索甲。', 'utf8');
     await writeFile(
       path.join(workspaceRoot, '.novelkit', 'memory', 'analyze_selection.json'),
       JSON.stringify({ sampleBookPath: '样板书B.txt' }),
@@ -216,7 +216,7 @@ describe('buildAnalyzeProposal', () => {
 
     expect(
       synopsisProposal.proposedWrites.find((item) => item.path === '1-边界/1.1_全书故事梗概.md')?.content,
-    ).toContain('神秘铜钱');
+    ).toContain('线索甲');
   });
 
   it('supports mode A env guidance before moving on to story summary', async () => {
@@ -224,7 +224,7 @@ describe('buildAnalyzeProposal', () => {
 
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -262,7 +262,7 @@ describe('buildAnalyzeProposal', () => {
   it('does not accept an empty env template as a valid A-path configuration', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 破庙雨夜', 'utf8');
+    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 开局事件', 'utf8');
     await writeFile(path.join(workspaceRoot, '.env'), 'NOVEL_API_KEY=\n', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');
@@ -280,7 +280,7 @@ describe('buildAnalyzeProposal', () => {
   it('asks again when the user gives an ambiguous A/B response', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 破庙雨夜', 'utf8');
+    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 开局事件', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');
     const proposal = await buildAnalyzeProposal({
@@ -298,7 +298,7 @@ describe('buildAnalyzeProposal', () => {
   it('treats custom analyze requests as requests instead of skipping when they contain continue language', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 破庙雨夜', 'utf8');
+    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 开局事件', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');
     const proposal = await buildAnalyzeProposal({
@@ -316,7 +316,7 @@ describe('buildAnalyzeProposal', () => {
   it('honors a user-specified output path for custom analyze', async () => {
     const workspaceRoot = await makeWorkspace();
 
-    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 破庙雨夜', 'utf8');
+    await writeFile(path.join(workspaceRoot, '样板书.txt'), '第一章 开局事件', 'utf8');
 
     const projectContent = await readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8');
     const proposal = await buildAnalyzeProposal({

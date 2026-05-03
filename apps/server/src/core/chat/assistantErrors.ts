@@ -7,7 +7,7 @@ import {
 } from './modelGenerationError';
 
 export type AssistantGenerationErrorCode =
-  | 'proposal-api-key-missing'
+  | 'proposal-model-required'
   | 'proposal-upstream-response'
   | 'proposal-empty-response'
   | 'proposal-invalid-response'
@@ -30,10 +30,10 @@ export function isAssistantGenerationError(error: unknown): error is AssistantGe
   return error instanceof AssistantGenerationError;
 }
 
-export function createAssistantApiKeyMissingError() {
+export function createAssistantModelRequiredError() {
   return new AssistantGenerationError({
-    code: 'proposal-api-key-missing',
-    message: '提案生成失败：未配置模型 API Key。',
+    code: 'proposal-model-required',
+    message: '提案生成需要配置模型服务；源码不会内置小说内容。请先配置模型，或手动写入项目文件后再继续。',
     statusCode: 503,
   });
 }

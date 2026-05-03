@@ -2516,7 +2516,7 @@ describe('App', () => {
   it('opens a newly generated proposal preview after chat refresh instead of preserving the previous reference document', async () => {
     const pendingProposal = {
       proposedWrites: [
-        { path: '4-正文/第001章_草稿.md', content: '# 第1章 逼债与绝境\n\n沈砚推门入夜。' },
+        { path: '4-正文/第001章_草稿.md', content: '# 第1章 待填写开局章标题\n\n角色甲执行动作甲。' },
       ],
     };
     let hasGeneratedProposal = false;
@@ -2708,7 +2708,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(document.querySelector('[data-editor-surface="path"]')?.textContent).toBe('4-正文/第001章_草稿.md');
-      expect(getCurrentDocumentEditor()).toHaveValue('# 第1章 逼债与绝境\n\n沈砚推门入夜。');
+      expect(getCurrentDocumentEditor()).toHaveValue('# 第1章 待填写开局章标题\n\n角色甲执行动作甲。');
       expect(document.querySelector('[data-editor-surface="readonly-note"]')).not.toBeNull();
     });
   });

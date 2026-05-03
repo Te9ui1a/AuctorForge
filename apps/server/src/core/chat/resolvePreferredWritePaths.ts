@@ -38,11 +38,18 @@ export function resolvePreferredWritePaths({
     pushUnique(preferredPaths, normalizedActiveDocumentPath);
   }
 
+  const isFinalizationIntent = isChapterFinalizationIntent(normalizedMessage);
+
   if (preferredPaths.length > 0) {
+    if (isFinalizationIntent) {
+      preferredPaths.sort((left, right) => finalPathRank(right) - finalPathRank(left));
+    }
     return preferredPaths;
   }
 
-  return normalizedStrictWorkflowWrites;
+  return isFinalizationIntent
+    ? [...normalizedStrictWorkflowWrites].sort((left, right) => finalPathRank(right) - finalPathRank(left))
+    : normalizedStrictWorkflowWrites;
 }
 
 function findMentionedPaths(message: string, candidatePaths: string[]) {
@@ -93,6 +100,18 @@ function normalizePromptMessage(userPrompt: string) {
 
 function isActiveDocumentTargetIntent(message: string) {
   return /(当前打开文档|当前文档|打开的文档|这个文档|这份文档|该文档|此文档)/u.test(message);
+}
+
+function isChapterFinalizationIntent(message: string) {
+  const compact = message.replace(/\s+/g, '');
+
+  return /(_定稿\.md|定稿)/u.test(compact)
+    || /(?:按|根据).{0,12}(审查报告|审查意见).{0,24}(生成|输出|写入|形成|产出|做成).{0,8}定稿/u.test(message)
+    || /(?:生成|输出|写入|形成|产出).{0,12}(最终稿|定稿版)/u.test(message);
+}
+
+function finalPathRank(path: string) {
+  return /4-正文\/第0*\d+章_定稿\.md/u.test(path) ? 1 : 0;
 }
 
 function uniqueNormalizedPaths(paths: string[]) {

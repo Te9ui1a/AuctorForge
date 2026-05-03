@@ -17,23 +17,23 @@
 
 - [x] 3.1 Introduce a `chapterPlanResolver` helper that parses both `第NN卷_章纲.md` and per-chapter sections inside `3.1_全书结构总纲.md`.
 - [x] 3.2 Return typed missing/unparsable/success results with chapter title, scene beats, conflict, turn, and hook.
-- [x] 3.3 Replace local ad hoc parsing in `assistantLocalProposal.ts` and `chapterContract.ts` with the shared resolver.
+- [x] 3.3 Replace ad hoc chapter-plan parsing in proposal validation with the shared resolver.
 - [x] 3.4 Update prompt building or proposal generation to block write-stage drafting when resolver status is missing/unparsable.
 
 ## 4. Harden Draft Proposal Validation
 
 - [x] 4.1 Make `validateChapterDraftProposal` fail closed when no chapter plan is available.
 - [x] 4.2 Always validate target write path and heading chapter number before content checks.
-- [x] 4.3 Enforce narrative length upper/lower bounds with the resolved chapter plan, including master-outline fallback.
+- [x] 4.3 Enforce narrative length upper/lower bounds with the resolved chapter plan, including the master outline as an alternate plan source.
 - [x] 4.4 Ensure AI-flavor blocking and context-drift checks run whenever a target draft exists.
 - [x] 4.5 Add structured validation failure codes for tests and diagnostics.
 
 ## 5. Remove Project-Contaminating Fallback Behavior
 
-- [x] 5.1 Remove hard-coded legacy fallback chapter prose and entities from production local chapter draft generation.
-- [x] 5.2 Generate fallback chapter prose only from active project role/setting/plan/memory inputs.
-- [x] 5.3 Return a blocking error when fallback lacks enough active project data for a safe draft.
-- [x] 5.4 Keep any legacy sample prose only in test fixtures where explicitly named.
+- [x] 5.1 Remove production local creative proposal generation.
+- [x] 5.2 Return a blocking model-required error when no model is configured.
+- [x] 5.3 Return structured model errors without replacing failures with local story content.
+- [x] 5.4 Move sample novel content into a sample project asset directory.
 
 ## 6. Persist Server-Owned Workflow State
 
@@ -43,7 +43,7 @@
 
 ## 7. Verification
 
-- [x] 7.1 Run targeted server tests for chat routing, chapter plan resolution, draft validation, fallback, and session persistence.
+- [x] 7.1 Run targeted server tests for chat routing, chapter plan resolution, draft validation, model-required behavior, and session persistence.
 - [x] 7.2 Run `pnpm test`.
 - [x] 7.3 Run a WebUI/API smoke test that creates or opens a project, generates chapters through at least one review-to-next-chapter cycle, refreshes, and verifies the workflow chapter does not regress.
 - [x] 7.4 Re-run a smaller multi-chapter generation test and confirm no skipped chapters, no wrong target paths, and no stale workflow session.

@@ -17,7 +17,7 @@ describe('assistantProposalParsers', () => {
           proposedWrites: [
             { path: '2-设定/2.2_新书设定案.md', content: '# 设定案' },
             { path: '', content: 'bad' },
-            { path: '2-设定/2.3_金手指设定.md', content: 42 },
+            { path: '2-设定/2.3_差异化能力设定.md', content: 42 },
           ],
         }),
         '```',
@@ -61,10 +61,10 @@ describe('assistantProposalParsers', () => {
       extractProjectPremise([
         {
           path: '2-设定/2.1_创意脑暴.md',
-          content: '# 套路方向与核心设定\n\n## 1. 核心梗 (Core Premise)\n龟丞相在西游世界苟道长生。',
+          content: '# 套路方向与核心设定\n\n## 1. 核心梗 (Core Premise)\n角色甲围绕主题甲完成长期目标。',
         },
       ]),
-    ).toBe('龟丞相在西游世界苟道长生。');
+    ).toBe('角色甲围绕主题甲完成长期目标。');
 
     expect(
       extractDiscussionPremise([
@@ -72,12 +72,12 @@ describe('assistantProposalParsers', () => {
         '',
         '### 最近讨论记录',
         '1. 先确定主角的求生逻辑',
-        '2. 把金手指做成偏保命型外挂',
+        '2. 把差异化能力做成偏保命型外挂',
       ].join('\n')),
-    ).toBe('把金手指做成偏保命型外挂');
+    ).toBe('把差异化能力做成偏保命型外挂');
 
-    expect(extractDirectedIdeaFromMessage('用户消息：重新生成：我想写一个苟道修仙故事。')).toBe(
-      '我想写一个苟道修仙故事。',
+    expect(extractDirectedIdeaFromMessage('用户消息：重新生成：我想写一个以主题甲为核心的长篇故事。')).toBe(
+      '我想写一个以主题甲为核心的长篇故事。',
     );
   });
 });

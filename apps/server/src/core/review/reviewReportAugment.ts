@@ -6,6 +6,8 @@ import {
 } from '../write/chapterContract';
 import { lintAiFlavor } from '../write/aiFlavorLint';
 import { buildAiFlavorRepairPlan } from '../write/aiFlavorRepairPlan';
+import { assessChapterContinuity } from '../write/chapterContinuityGate';
+import { resolveChapterPlanFromProjectFiles } from '../write/chapterPlanResolver';
 import { extractReviewGate, type ReviewGate } from './reviewGate';
 
 export function augmentChapterReviewProposal(options: {
@@ -24,6 +26,12 @@ export function augmentChapterReviewProposal(options: {
 
   const lint = lintAiFlavor(draftContent);
   const lintGate = lint.blocked ? 'revise' : 'pass';
+  const continuity = assessReviewContinuity({
+    chapterNumber: options.chapterNumber,
+    draftContent,
+    projectFiles: options.projectFiles,
+  });
+  const continuityGate = continuity?.verdict === 'revise' ? 'revise' : 'pass';
   const explicitGate = extractReviewGate(effectiveReviewWrite.content);
   const narrativeChars = countChapterDraftNarrativeChars(draftContent);
   const falseShortLengthClaim = hasFalseShortLengthClaim(effectiveReviewWrite.content, narrativeChars);
@@ -31,7 +39,7 @@ export function augmentChapterReviewProposal(options: {
     falseShortLengthClaim && explicitGate === 'revise' && lintGate === 'pass'
       ? 'pass'
       : explicitGate;
-  const gate = pickStrongerGate(correctedExplicitGate, lintGate);
+  const gate = pickStrongerGate(pickStrongerGate(correctedExplicitGate, lintGate), continuityGate);
 
   let content = upsertReviewGate(correctFalseLengthEstimates(effectiveReviewWrite.content, narrativeChars), gate);
   content = upsertTrailingSection(content, '## 字数核验（服务端补充）', [
@@ -55,6 +63,15 @@ export function augmentChapterReviewProposal(options: {
     ]);
   }
 
+  if (continuity && continuity.findings.length > 0) {
+    content = upsertTrailingSection(content, '## 连续性硬校验（服务端补充）', [
+      `- 服务端评级建议：${continuityGate.toUpperCase()}`,
+      `- 命中类型：${continuity.findings.map((finding) => finding.kind).join('、')}`,
+      ...continuity.findings.map((finding) => `- 证据摘录：${finding.evidence}`),
+      ...continuity.findings.map((finding) => `- 修补建议：${finding.message}`),
+    ]);
+  }
+
   return {
     proposedWrites: baseProposedWrites.map((item) =>
       item.path === reviewPath
@@ -66,6 +83,29 @@ export function augmentChapterReviewProposal(options: {
     ),
     gate,
   };
+}
+
+function assessReviewContinuity({
+  chapterNumber,
+  draftContent,
+  projectFiles,
+}: {
+  chapterNumber: number;
+  draftContent: string;
+  projectFiles: Array<{ path: string; content: string | null }>;
+}) {
+  const resolution = resolveChapterPlanFromProjectFiles(projectFiles, chapterNumber);
+  if (!resolution.ok) {
+    return null;
+  }
+
+  return assessChapterContinuity({
+    currentChapterNumber: chapterNumber,
+    draftContent,
+    previousChapterSummary: projectFiles.find((file) => file.path === chapterDraftPath(chapterNumber - 1))?.content ?? '',
+    currentPlan: resolution.chapter,
+    futurePlans: resolution.chapters.filter((chapter) => chapter.number > chapterNumber),
+  });
 }
 
 function formatRepairTasks(tasks: ReturnType<typeof buildAiFlavorRepairPlan>['tasks']) {

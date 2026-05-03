@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
-import { mkdir, appendFile, readFile, writeFile } from 'node:fs/promises';
+import { cp } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -96,7 +96,6 @@ type CreateAppOptions = {
   skillPackPath: string;
   userConfigDir?: string;
   folderPicker?: FolderPicker;
-  disableLocalProposalFallback?: boolean;
 };
 
 const projectSessionWriteQueues = new Map<string, Promise<void>>();
@@ -162,7 +161,6 @@ export function createApp({
   skillPackPath,
   userConfigDir = process.env.VITEST ? initialProjectRoot ?? homedir() : homedir(),
   folderPicker = createNativeFolderPicker(),
-  disableLocalProposalFallback = false,
 }: CreateAppOptions) {
   const app = Fastify();
   app.setErrorHandler((error, request, reply) => {
@@ -209,6 +207,7 @@ export function createApp({
   const commandHandlers: Array<ChatTurnServiceHandler<ChatTurnContext, unknown>> = [
     { name: 'approval', handle: handleApprovalCommand },
     { name: 'progress-summary', handle: handleProgressSummaryCommand },
+    { name: 'chapter-finalization', handle: handleChapterFinalizationCommand },
     { name: 'explicit-chapter-write', handle: handleExplicitChapterWriteCommand },
     { name: 'continue-next-chapter-from-review', handle: handleContinueNextChapterFromReviewCommand },
     { name: 'plan-mode', handle: handlePlanModeCommand },
@@ -825,19 +824,19 @@ export function createApp({
   });
 
   app.post('/api/projects/sample', async (_request, reply) => {
-    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'workflow-sample');
 
     try {
       const result = await createProject({
         userConfigDir,
         rootPath: sampleRoot,
-        displayName: 'Lantern Road',
+        displayName: 'Workflow Sample',
         entryMode: 'create',
         skillPackPath,
-        createProjectId: () => 'sample_lantern_road',
+        createProjectId: () => 'sample_workflow',
       });
 
-      await writeSampleProjectFiles(sampleRoot);
+      await copySampleProjectFiles(sampleRoot, skillPackPath);
       await reconcileActiveProjectWithStore(result.store);
 
       return {
@@ -1300,7 +1299,12 @@ export function createApp({
       : null;
   }
 
-  async function handleChapterPauseCommand({ message }: ChatTurnContext) {
+  async function handleChapterPauseCommand({
+    message,
+    attachments,
+    activeDocumentPath,
+    routeReply,
+  }: ChatTurnContext) {
     if (getCurrentStep().module !== 'write' || getCurrentStep().substepId !== 'chapter-pause') {
       return null;
     }
@@ -1309,7 +1313,25 @@ export function createApp({
       return null;
     }
 
-    return handleChapterPauseTurn(message);
+    return handleChapterPauseTurn(message, attachments, activeDocumentPath, routeReply);
+  }
+
+  async function handleChapterFinalizationCommand({
+    message,
+    attachments,
+    activeDocumentPath,
+    routeReply,
+  }: ChatTurnContext) {
+    const current = getCurrentStep();
+    if (
+      current.module !== 'write'
+      || !['chapter-draft', 'chapter-pause'].includes(current.substepId)
+      || !isChapterFinalizationIntent(message)
+    ) {
+      return null;
+    }
+
+    return enterChapterFinalizationTurn(message, attachments, activeDocumentPath, routeReply);
   }
 
   async function handleExplicitChapterWriteCommand({
@@ -1320,6 +1342,9 @@ export function createApp({
   }: ChatTurnContext) {
     const current = getCurrentStep();
     const requestedChapterNumber = extractRequestedChapterNumber(message);
+    const targetsCurrentChapter =
+      requestedChapterNumber === null
+      || requestedChapterNumber === getRuntimeState().workflowState.chapterNumber;
     const isSameChapterReviewRestart =
       requestedChapterNumber === getRuntimeState().workflowState.chapterNumber
       && current.module === 'review'
@@ -1329,15 +1354,14 @@ export function createApp({
       isReviewTrigger(message)
       || shouldTreatAsWriteRevision(current, message)
       ||
-      requestedChapterNumber === null
-      || (requestedChapterNumber === getRuntimeState().workflowState.chapterNumber && !isSameChapterReviewRestart)
+      (requestedChapterNumber === getRuntimeState().workflowState.chapterNumber && !isSameChapterReviewRestart && current.substepId !== 'chapter-draft')
       || (current.module !== 'write' && current.module !== 'review')
       || (!isChapterWriteStartIntent(message) && !isExplicitChapterWriteRepairIntent(message))
     ) {
       return null;
     }
 
-    if (requestedChapterNumber < getRuntimeState().workflowState.chapterNumber) {
+    if (requestedChapterNumber !== null && requestedChapterNumber < getRuntimeState().workflowState.chapterNumber) {
       const existingDraft = await readProjectFileIfExists(getRuntimeState().projectRoot, chapterDraftPath(requestedChapterNumber));
       if (existingDraft !== null) {
         return {
@@ -1352,7 +1376,7 @@ export function createApp({
     getRuntimeState().workflowState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'write-chapter', {
       mode: 'standard',
       substepId: 'chapter-draft',
-      chapterNumber: requestedChapterNumber,
+      chapterNumber: targetsCurrentChapter ? getRuntimeState().workflowState.chapterNumber : requestedChapterNumber,
     });
     getRuntimeState().pendingProposal = null;
     getRuntimeState().pendingDecision = null;
@@ -1664,7 +1688,16 @@ export function createApp({
     return handleAnalyzeTurn(message, attachments, activeDocumentPath, routeReply);
   }
 
-  async function handleChapterPauseTurn(message: string) {
+  async function handleChapterPauseTurn(
+    message: string,
+    attachments: Array<{ name: string; mimeType: string; size: number; textContent: string }> = [],
+    activeDocumentPath: string | null = null,
+    routeReply?: FastifyReply,
+  ) {
+    if (isChapterFinalizationIntent(message)) {
+      return enterChapterFinalizationTurn(message, attachments, activeDocumentPath, routeReply);
+    }
+
     if (isContinueNextChapterTrigger(message)) {
       const maxOutlinedChapterNumber = await readMaxOutlinedChapterNumber();
 
@@ -1811,6 +1844,45 @@ export function createApp({
       routeReply,
       stepTitle: writeStep.substepTitle,
     });
+  }
+
+  async function enterChapterFinalizationTurn(
+    message: string,
+    attachments: Array<{ name: string; mimeType: string; size: number; textContent: string }> = [],
+    activeDocumentPath: string | null = null,
+    routeReply?: FastifyReply,
+  ) {
+    getRuntimeState().workflowState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'write-chapter', {
+      substepId: 'chapter-finalize',
+      chapterNumber: getRuntimeState().workflowState.chapterNumber,
+    });
+    getRuntimeState().pendingProposal = null;
+    getRuntimeState().pendingDecision = null;
+
+    const currentWriteStep = getCurrentStep();
+    await syncWorkflowFiles({
+      projectRoot: getRuntimeState().projectRoot,
+      stepId: currentWriteStep.id,
+      substepId: currentWriteStep.substepId,
+      volumeNumber: getRuntimeState().workflowState.volumeNumber,
+      chapterNumber: getRuntimeState().workflowState.chapterNumber,
+      revisionMode: true,
+    });
+
+    return routeReply
+      ? generateAssistantProposalTurn({
+          userMessage: message,
+          attachments,
+          activeDocumentPath,
+          routeReply,
+          stepTitle: currentWriteStep.substepTitle,
+        })
+      : {
+          reply: `已进入${formatChapterLabel(getRuntimeState().workflowState.chapterNumber)}定稿修订。`,
+          session: buildSessionResponse(activeDocumentPath),
+          pendingDecision: null,
+          pendingProposal: null,
+        };
   }
 
   function handleDiscussionHoldTurn(
@@ -2247,7 +2319,6 @@ export function createApp({
         projectFiles: prompt.projectFiles,
         workflowDocs: prompt.workflowDocs,
         modelConfig: (await readActiveModelConfig(userConfigDir)) ?? undefined,
-        allowLocalFallback: !disableLocalProposalFallback,
       });
     } catch (error) {
       return sendAssistantError(routeReply, error);
@@ -2997,6 +3068,15 @@ function isContinueCurrentChapterTrigger(message: string) {
   return /(继续修改当前章|重写当前章|回到当前章)/u.test(message.trim());
 }
 
+function isChapterFinalizationIntent(message: string) {
+  const normalized = message.trim();
+  const compact = normalized.replace(/\s+/g, '');
+
+  return /(_定稿\.md|定稿)/u.test(compact)
+    || /(?:按|根据).{0,12}(审查报告|审查意见).{0,24}(生成|输出|写入|形成|产出|做成).{0,8}定稿/u.test(normalized)
+    || /(?:生成|输出|写入|形成|产出).{0,12}(最终稿|定稿版)/u.test(normalized);
+}
+
 function shouldTreatAsWriteRevision(
   step: ReturnType<typeof getCurrentWorkflowStep>,
   message: string,
@@ -3037,7 +3117,7 @@ function isGuideFreeformSubstep(step: ReturnType<typeof getCurrentWorkflowStep>)
 }
 
 function resolveReviewSubstepId(message: string, module: string) {
-  if (/设定|人设|金手指/u.test(message)) {
+  if (/设定|人设|金手指|核心能力|差异化能力/u.test(message)) {
     return 'setting-review' as const;
   }
 
@@ -3064,74 +3144,13 @@ function resolveReviewSubstepId(message: string, module: string) {
   return null;
 }
 
-async function writeSampleProjectFiles(projectRoot: string) {
-  await mkdir(path.join(projectRoot, '2-设定'), { recursive: true });
-  await mkdir(path.join(projectRoot, '3-大纲'), { recursive: true });
-  await mkdir(path.join(projectRoot, '4-正文'), { recursive: true });
-
-  const projectIndexPath = path.join(projectRoot, 'PROJECT.md');
-  const projectIndex = await readFile(projectIndexPath, 'utf8');
-  if (!projectIndex.includes('## 示例项目：Lantern Road')) {
-    await appendFile(
-      projectIndexPath,
-      [
-        '',
-        '',
-        '## 示例项目：Lantern Road',
-        '',
-        '这是 AuctorForge 内置的虚构示例，只用于熟悉本地项目结构、章节编辑和工作流切换。',
-        '故事围绕 Lin Zhao 在 border-town 找回失落灯匠手稿展开。',
-      ].join('\n'),
-      'utf8',
-    );
-  }
-
-  await writeFile(
-    path.join(projectRoot, '2-设定/2.4_主要角色设定表.md'),
-    [
-      '# 主要角色设定表',
-      '',
-      '## Lin Zhao',
-      '',
-      '- 身份：年轻灯匠，负责维护边城旧路上的引路灯。',
-      '- 外在目标：找回失落的灯匠手稿，让商队重新通过 Lantern Road。',
-      '- 内在冲突：害怕自己的判断会再次让同伴置身险境。',
-      '',
-      '## Mira Chen',
-      '',
-      '- 身份：边城书记员，熟悉旧档案和商路税册。',
-      '- 作用：提供线索，也不断质疑 Lin Zhao 的冒进。',
-    ].join('\n'),
-    'utf8',
-  );
-
-  await writeFile(
-    path.join(projectRoot, '3-大纲/第01卷_章纲.md'),
-    [
-      '# 第01卷章纲',
-      '',
-      '1. 旧灯熄灭：Lin Zhao 在 border-town 收到一盏不会熄灭的灯。',
-      '2. 手稿线索：Mira Chen 在档案室发现被涂黑的商路记录。',
-      '3. 夜路试行：两人沿 Lantern Road 进入无人驿站。',
-    ].join('\n'),
-    'utf8',
-  );
-
-  await writeFile(
-    path.join(projectRoot, '4-正文/第001章_样章.md'),
-    [
-      '# 第001章 样章',
-      '',
-      'The border-town woke before sunrise, not because of bells, but because every lantern on the eastern gate had gone dark at once.',
-      '',
-      'Lin Zhao stood beneath the last working lamp and listened to the glass hum. The sound was too steady for wind, too patient for fire.',
-      '',
-      '"If this road opens again," Mira Chen said, folding the old map under one arm, "someone will ask why it was closed."',
-      '',
-      'Lin Zhao looked toward Lantern Road, where the morning fog held its shape like a locked door.',
-    ].join('\n'),
-    'utf8',
-  );
+async function copySampleProjectFiles(projectRoot: string, skillPackPath: string) {
+  const sampleAssetRoot = path.join(skillPackPath, 'extension/assets/longformnovel/examples/workflow-sample');
+  await cp(sampleAssetRoot, projectRoot, {
+    recursive: true,
+    force: true,
+    errorOnExist: false,
+  });
 }
 
 async function findMissingProjectFiles(projectRoot: string, filePaths: string[]) {

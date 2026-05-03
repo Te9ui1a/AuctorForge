@@ -1,14 +1,13 @@
 import type { BuiltPrompt } from './buildPrompt';
 import {
-  createAssistantApiKeyMissingError,
   createAssistantEmptyResponseError,
   createAssistantInvalidResponseError,
+  createAssistantModelRequiredError,
   createAssistantNetworkError,
   createAssistantUpstreamResponseError,
   isAssistantGenerationError,
   type AssistantProvider,
 } from './assistantErrors';
-import { buildLocalProposal } from './assistantLocalProposal';
 import { tryParseAssistantProposal } from './assistantProposalParsers';
 export type { AssistantProposal, ProposedWrite } from './assistantProposalTypes';
 import { resolvePreferredWritePaths } from './resolvePreferredWritePaths';
@@ -26,7 +25,6 @@ type GenerateAssistantReplyOptions = Pick<BuiltPrompt, 'systemPrompt' | 'userPro
   projectFiles: BuiltPrompt['projectFiles'];
   workflowDocs: BuiltPrompt['workflowDocs'];
   modelConfig?: ModelConfig;
-  allowLocalFallback?: boolean;
   requestTimeoutMs?: number;
 };
 
@@ -146,16 +144,13 @@ function buildAssistantRuntimeInstructions({
 export async function generateAssistantReply({
   systemPrompt,
   userPrompt,
-  stepTitle,
   module,
   allowedWrites,
   strictWorkflowWrites,
   chatAllowedWrites,
   activeDocumentPath,
   projectFiles,
-  workflowDocs,
   modelConfig,
-  allowLocalFallback = true,
   requestTimeoutMs = DEFAULT_ASSISTANT_REQUEST_TIMEOUT_MS,
 }: GenerateAssistantReplyOptions) {
   const strictWrites = strictWorkflowWrites ?? allowedWrites;
@@ -174,27 +169,11 @@ export async function generateAssistantReply({
     effectiveChatAllowedWrites,
     projectFiles,
   });
-  const buildFallbackProposal = () => buildLocalProposal({
-    stepTitle,
-    module,
-    strictWorkflowWrites: strictWrites,
-    chatAllowedWrites: effectiveChatAllowedWrites,
-    preferredWritePaths: explicitPreferredWritePaths,
-    userPrompt,
-    projectFiles,
-    workflowDocs,
-  });
-  const hasExplicitModelConfig = modelConfig !== undefined;
-  const canUseLocalFallbackForModelFailure = allowLocalFallback && !hasExplicitModelConfig;
   const apiKey = modelConfig?.apiKey || process.env.NOVEL_FLOW_API_KEY || process.env.OPENAI_API_KEY;
   const provider: AssistantProvider = modelConfig?.provider === 'gemini-native' ? 'gemini-native' : 'openai-compatible';
 
   if (!apiKey) {
-    if (!allowLocalFallback || hasExplicitModelConfig) {
-      throw createAssistantApiKeyMissingError();
-    }
-
-    return buildFallbackProposal();
+    throw createAssistantModelRequiredError();
   }
 
   const baseUrl = modelConfig?.baseUrl || process.env.NOVEL_FLOW_API_BASE || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
@@ -238,28 +217,16 @@ export async function generateAssistantReply({
       const content = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim();
 
       if (!content) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantEmptyResponseError({ provider });
       }
 
       const parsed = tryParseAssistantProposal(content);
       if (!parsed) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantInvalidResponseError({ provider });
       }
 
       const proposedWrites = filterAssistantProposedWrites(parsed.proposedWrites, effectiveChatAllowedWrites);
       if (shouldFallBackForMissingStageWrite({ module, strictWrites, explicitPreferredWritePaths, proposedWrites })) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantInvalidResponseError({ provider });
       }
 
@@ -299,28 +266,16 @@ export async function generateAssistantReply({
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantEmptyResponseError({ provider });
     }
 
     const parsed = tryParseAssistantProposal(content);
     if (!parsed) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantInvalidResponseError({ provider });
     }
 
     const proposedWrites = filterAssistantProposedWrites(parsed.proposedWrites, effectiveChatAllowedWrites);
     if (shouldFallBackForMissingStageWrite({ module, strictWrites, explicitPreferredWritePaths, proposedWrites })) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantInvalidResponseError({ provider });
     }
 
@@ -331,10 +286,6 @@ export async function generateAssistantReply({
   } catch (error) {
     if (isAssistantGenerationError(error)) {
       throw error;
-    }
-
-    if (canUseLocalFallbackForModelFailure) {
-      return buildFallbackProposal();
     }
 
     throw createAssistantNetworkError({ provider, cause: error });

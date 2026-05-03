@@ -117,10 +117,10 @@ describe('projectApi', () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        activeProjectId: 'sample_lantern_road',
+        activeProjectId: 'sample_workflow',
         project: {
-          id: 'sample_lantern_road',
-          displayName: 'Lantern Road',
+          id: 'sample_workflow',
+          displayName: 'Workflow Sample',
           rootPath: '/tmp/auctorforge-sample',
           status: 'ready',
           phase: '示例阶段',
@@ -137,8 +137,8 @@ describe('projectApi', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/sample', { method: 'POST' });
     expect(project).toEqual({
-      id: 'sample_lantern_road',
-      name: 'Lantern Road',
+      id: 'sample_workflow',
+      name: 'Workflow Sample',
       rootPath: '/tmp/auctorforge-sample',
       lastModified: new Date('2026-05-02T00:00:00.000Z').getTime(),
       status: 'active',

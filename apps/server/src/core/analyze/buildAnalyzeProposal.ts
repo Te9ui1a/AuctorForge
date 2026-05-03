@@ -264,7 +264,7 @@ function buildStyleGuide(sampleText: string) {
     '对白简短，主要承担推进冲突和压缩信息的作用。',
     '',
     '## 剧情节奏 (Pacing)',
-    '前三章快速建立危机、金手指与第一轮反制期待。',
+    '前三章快速建立危机、项目能力或差异化资源，以及第一轮阶段性变化。',
     '',
     '## 整体基调 (Tone)',
     '悬压感强，强调先压后扬。',
@@ -275,31 +275,31 @@ function buildStyleGuide(sampleText: string) {
 }
 
 function buildTropeGuide(sampleText: string) {
-  const keyword = sampleText.match(/神秘铜钱|铜钱|系统|传承|戒指|玉佩|剑灵/u)?.[0] ?? '核心外挂';
+  const coreSignal = extractCoreSignalFromSample(sampleText);
 
   return [
     '# 套路方向与核心设定 (Tropes & Core Concept)',
     '',
     '## 1. 核心梗 (Core Premise)',
-    `主角在开局绝境中获得${keyword}，借此逆转命运。`,
+    `样板书开篇围绕“${coreSignal}”建立核心吸引力，并通过连续压力推动主角进入主线。`,
     '',
     '## 2. 金手指 (The Cheat)',
-    `${keyword}构成最直接的差异化卖点。`,
+    `若样板书存在能力、资源或秘密线索，应从“${coreSignal}”继续拆解其出现时机、代价、限制和升级节奏。`,
     '',
     '## 3. 世界观 (World Building)',
     '外部秩序强压，逼迫主角快速成长。',
     '',
     '## 4. 关键人设 (Characters)',
-    '主角先弱后强，反派带有明确压迫性。',
+    '主角状态变化清晰，对手或阻力来源带有明确压迫性。',
     '',
     '## 5. 主线 (Main Plot)',
-    '从求生起步，逐步转向反制与跃迁。',
+    '从开局压力起步，逐步转向主动选择与阶段跃迁。',
     '',
     '## 6. 小说爽点 (Pleasure Points)',
-    '绝境翻盘、信息差反杀、资源逆袭。',
+    '压力兑现、信息差、资源变化与阶段性反转。',
     '',
     '## 7. 主要故事剧情 (Key Story Arcs)',
-    '开局危机 -> 获得外挂 -> 首次反杀 -> 身份提升。',
+    '开局危机 -> 获得依仗 -> 首次主动选择 -> 状态变化。',
     '',
     '## 8. 受众 (Target Audience)',
     '偏爱强钩子、强节奏和明显爽点的网文读者。',
@@ -309,9 +309,24 @@ function buildTropeGuide(sampleText: string) {
   ].join('\n');
 }
 
+function extractCoreSignalFromSample(sampleText: string) {
+  const cleanedLines = sampleText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !/^第\s*[一二三四五六七八九十百千万\d]+\s*章/u.test(line));
+  const firstNarrativeLine = cleanedLines[0] ?? '';
+  const sentence = firstNarrativeLine.split(/[。！？!?]/u).find((part) => part.trim().length > 0)?.trim();
+
+  if (!sentence) {
+    return '样板书开篇钩子';
+  }
+
+  return sentence.length > 28 ? `${sentence.slice(0, 28)}...` : sentence;
+}
+
 function buildFramework(chapterHeads: string[], sampleText: string) {
   const firstUnit = chapterHeads.slice(0, 3).join(' / ') || '前三章开篇危机';
-  const densityHint = `样板书当前共识别 ${chapterHeads.length} 个章节标题，前 3 章就完成开局危机与金手指亮相。`;
+  const densityHint = `样板书当前共识别 ${chapterHeads.length} 个章节标题，用于参考开局信息密度和事件推进速度。`;
 
   return [
     '# 全书框架',
@@ -320,10 +335,10 @@ function buildFramework(chapterHeads: string[], sampleText: string) {
     `- 开篇单元：${firstUnit}`,
     '',
     '## 核心节奏公式',
-    '危机出现 -> 获得依仗 -> 藏招试探 -> 借势反杀。',
+    '压力出现 -> 获得依仗 -> 试探边界 -> 形成阶段变化。',
     '',
     '## 换地图逻辑分析',
-    '当主角在当前区域完成第一次身份抬升后，故事会自然转向更高层级舞台。',
+    '当主角在当前舞台完成阶段目标后，故事会自然转向更高层级或新功能舞台。',
     '',
     '## 对新书的启示',
     `- 开局要像样板书一样，尽快把“${sampleText.slice(0, 18)}”式的危机压到主角面前。`,
@@ -343,7 +358,7 @@ function buildMicroRhythm(chapterHeads: string[], sampleText: string) {
     `- 样本章节：${firstThree.join(' / ') || '前 3 章'}`,
     '- 起：先给主角明确压力。',
     '- 承：连续压制并逼主角作出选择。',
-    '- 转：借金手指或信息差完成反转。',
+    '- 转：借能力、资源或信息差完成阶段反转。',
     '- 合：收获阶段性成果并引出更大麻烦。',
     '',
     '## 黄金三章显微镜',

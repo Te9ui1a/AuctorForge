@@ -1,7 +1,8 @@
 import { normalizeProjectPath } from '../compat/rules';
 import type { ProposedWrite } from '../chat/assistantProposalTypes';
-import { ROLE_TABLE_PATH, VOLUME_CHAPTER_OUTLINE_PATH, chapterDraftPath, chapterLabel } from '../paths/projectPaths';
+import { ROLE_TABLE_PATH, chapterDraftPath, chapterLabel } from '../paths/projectPaths';
 import { DEFAULT_VOLUME_NUMBER } from '../paths/volumeContext';
+import { assessChapterContinuity, formatChapterContinuityFindings } from './chapterContinuityGate';
 import { parseChapterNumberFromDraftPath, resolveChapterPlanFromProjectFiles } from './chapterPlanResolver';
 
 type OutlineChapter = {
@@ -18,7 +19,8 @@ export type ChapterDraftValidationCode =
   | 'chapter-draft-title-mismatch'
   | 'chapter-draft-too-short'
   | 'chapter-draft-early-finale'
-  | 'chapter-draft-context-drift';
+  | 'chapter-draft-context-drift'
+  | 'chapter-draft-continuity-revise';
 
 const EARLY_FINALE_PATTERN = /(大结局|终章|完结章|最终章|全书完|故事完结)/u;
 export const TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS = 3200;
@@ -158,6 +160,22 @@ export function validateChapterDraftProposal(options: {
     } as const;
   }
 
+  const continuity = assessChapterContinuity({
+    currentChapterNumber: options.currentChapterNumber,
+    draftContent: draftWrite.content,
+    previousChapterSummary: findPreviousChapterContent(options.projectFiles, options.currentChapterNumber),
+    currentPlan: expectedChapter,
+    futurePlans: chapterPlanResolution.chapters.filter((chapter) => chapter.number > options.currentChapterNumber),
+  });
+  if (continuity.verdict === 'revise') {
+    const findingText = formatChapterContinuityFindings(continuity.findings);
+    return {
+      ok: false,
+      code: 'chapter-draft-continuity-revise',
+      message: `${chapterLabel(options.currentChapterNumber)}草稿连续性未通过：提前消费后续章纲或资源升级异常。${findingText}，请回到本章章纲范围内重写。`,
+    } as const;
+  }
+
   return { ok: true } as const;
 }
 
@@ -192,18 +210,19 @@ function validateProjectContextConsistency({
     return null;
   }
 
-  const leakedOldFallbackTerms = ['陈渊', '毒蛇帮', '棚户区', '黑水仓', '刘三']
-    .filter((term) => draftContent.includes(term) && !contextText.includes(term));
-
-  if (leakedOldFallbackTerms.length > 0) {
-    return `出现了当前设定中不存在的旧模板词：${leakedOldFallbackTerms.join('、')}`;
-  }
-
   if (!roleNames.some((name) => draftContent.includes(name))) {
     return `正文没有使用角色表中的核心角色：${roleNames.slice(0, 3).join('、')}`;
   }
 
   return null;
+}
+
+function findPreviousChapterContent(projectFiles: Array<{ path: string; content: string | null }>, currentChapterNumber: number) {
+  if (currentChapterNumber <= 1) {
+    return '';
+  }
+
+  return projectFiles.find((file) => normalizeProjectPath(file.path) === chapterDraftPath(currentChapterNumber - 1))?.content ?? '';
 }
 
 function extractRoleNames(roleTable: string) {

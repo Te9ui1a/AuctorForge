@@ -299,25 +299,25 @@ describe('buildPrompt', () => {
       workspaceRoot,
       [45, 46, 47].map((chapterNumber) => ({
         chapterNumber,
-        title: `旧账第${chapterNumber}夜`,
-        summary: `林照在第${chapterNumber}章继续追查账册下落。`,
+        title: `阶段事件第${chapterNumber}夜`,
+        summary: `角色甲在第${chapterNumber}章继续追查物件甲下落。`,
         time: null,
         location: null,
-        activeCharacters: ['林照'],
-        objects: chapterNumber === 47 ? [{ name: '账册', owner: '阿七', state: '被带走' }] : [],
-        hooksOpened: chapterNumber === 47 ? ['账册须在第050章前回收'] : [],
+        activeCharacters: ['角色甲'],
+        objects: chapterNumber === 47 ? [{ name: '物件甲', owner: '角色乙', state: '被带走' }] : [],
+        hooksOpened: chapterNumber === 47 ? ['物件甲须在第050章前回收'] : [],
         hooksResolved: [],
-        facts: chapterNumber === 47 ? ['账册目前在阿七手里'] : [],
+        facts: chapterNumber === 47 ? ['物件甲目前在角色乙手里'] : [],
         evidence: [],
         contentHash: String(chapterNumber),
         updatedAt: '2026-04-27T00:00:00.000Z',
       })),
     );
     await writeStructuredEntities(workspaceRoot, {
-      'character:林照': {
-        id: 'character:林照',
+      'character:角色甲': {
+        id: 'character:角色甲',
         kind: 'character',
-        name: '林照',
+        name: '角色甲',
         aliases: [],
         status: 'active',
         firstSeenChapter: 1,
@@ -332,7 +332,7 @@ describe('buildPrompt', () => {
         reviewGate: 'revise',
         narrativeChars: 3200,
         aiFlavorHits: ['结论式抒情'],
-        continuityWarnings: ['账册伏笔临近回收'],
+        continuityWarnings: ['物件甲伏笔临近回收'],
         evidence: [],
         updatedAt: '2026-04-27T00:00:00.000Z',
       },
@@ -343,13 +343,13 @@ describe('buildPrompt', () => {
       skillPackPath,
       contract,
       state,
-      userMessage: '继续写第48章，林照要追查账册。',
+      userMessage: '继续写第48章，角色甲要追查物件甲。',
     });
 
     expect(prompt.systemPrompt).toContain('### 长期记忆摘录');
     expect(prompt.systemPrompt).toContain('第047章');
-    expect(prompt.systemPrompt).toContain('账册须在第050章前回收');
-    expect(prompt.systemPrompt).toContain('林照');
-    expect(prompt.systemPrompt).toContain('账册目前在阿七手里');
+    expect(prompt.systemPrompt).toContain('物件甲须在第050章前回收');
+    expect(prompt.systemPrompt).toContain('角色甲');
+    expect(prompt.systemPrompt).toContain('物件甲目前在角色乙手里');
   });
 });

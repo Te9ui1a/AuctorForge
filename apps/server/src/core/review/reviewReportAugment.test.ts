@@ -9,7 +9,7 @@ describe('reviewReportAugment', () => {
       projectFiles: [
         {
           path: '4-正文/第004章_草稿.md',
-          content: '# 第004章 雨夜杀局\n\n陈渊收起符纸，确认巷口无人。',
+          content: '# 第004章 待填写第004章标题\n\n角色甲收起资源甲，确认巷口无人。',
         },
       ],
       proposedWrites: [
@@ -31,7 +31,7 @@ describe('reviewReportAugment', () => {
       ]),
     );
     expect(augmented.proposedWrites.find((item) => item.path === '5-审查/第004章_审查报告.md')?.content).toContain(
-      '审查对象：第004章 雨夜杀局',
+      '审查对象：第004章 待填写第004章标题',
     );
   });
 
@@ -41,7 +41,7 @@ describe('reviewReportAugment', () => {
       projectFiles: [
         {
           path: '4-正文/第004章_草稿.md',
-          content: '# 第004章 雨夜杀局\n\n' + '陈渊深吸一口气，沿着巷口重新核对血迹。'.repeat(80),
+          content: '# 第004章 待填写第004章标题\n\n' + '角色甲深吸一口气，沿着巷口重新核对血迹。'.repeat(80),
         },
       ],
       proposedWrites: [
@@ -68,7 +68,7 @@ describe('reviewReportAugment', () => {
         {
           path: '4-正文/第001章_草稿.md',
           content: [
-            '# 第001章 夹缝求生',
+            '# 第001章 待填写开局章标题',
             '',
             '夜色像刀一样压下来，仿佛整条街都在发抖。',
             '这不是求生，而是命运对他的审判。',
@@ -100,9 +100,9 @@ describe('reviewReportAugment', () => {
         {
           path: '4-正文/第002章_草稿.md',
           content: [
-            '# 第002章 借势藏锋',
+            '# 第002章 待填写承接章标题',
             '',
-            '这意味着他已经没有退路，只能把账册重新压回袖中。',
+            '这意味着他已经没有退路，只能把物件甲重新压回袖中。',
           ].join('\n'),
         },
       ],
@@ -124,13 +124,55 @@ describe('reviewReportAugment', () => {
     expect(report).toContain('## 局部改写任务（服务端补充）');
   });
 
+  it('adds service-side continuity findings and raises false PASS ratings to REVISE', () => {
+    const augmented = augmentChapterReviewProposal({
+      chapterNumber: 3,
+      projectFiles: [
+        {
+          path: '3-大纲/第01卷_章纲.md',
+          content: [
+            '### 第3章：当前章',
+            '- **章节梗概**：主角处理当前事件。',
+            '- 连续性信号：当前信号甲',
+            '- 场景1：处理当前信号甲。',
+            '- **章末钩子**：当前悬念继续。',
+            '',
+            '### 第5章：后续章',
+            '- **章节梗概**：后续揭示：未来信号甲、未来信号乙',
+            '- 场景1：处理未来信号甲。',
+            '- 场景2：处理未来信号乙。',
+          ].join('\n'),
+        },
+        {
+          path: '4-正文/第003章_草稿.md',
+          content: '# 第003章 当前章\n\n'
+            + '正文处理当前信号甲，却提前写到了未来信号甲和未来信号乙。',
+        },
+      ],
+      proposedWrites: [
+        {
+          path: '5-审查/第003章_审查报告.md',
+          content: '# 第003章 审查报告\n\n- 审查评级：PASS\n\n## 连续性检查\n- 连续性完美，可以继续下一章。',
+        },
+      ],
+    });
+
+    const report = augmented.proposedWrites[0]?.content ?? '';
+
+    expect(augmented.gate).toBe('revise');
+    expect(report).toContain('审查评级：REVISE');
+    expect(report).toContain('## 连续性硬校验（服务端补充）');
+    expect(report).toContain('提前消费后续章纲');
+    expect(report).toContain('future-beat-leak');
+  });
+
   it('corrects false model word-count estimates with deterministic chapter length data', () => {
     const longDraft = [
-      '# 第004章 雨夜杀局',
+      '# 第004章 待填写第004章标题',
       '',
-      '陈渊低头检查袖中的符纸，雨声压住了巷尾的脚步。',
+      '角色甲低头检查袖中的资源甲，环境声源压住了巷尾的脚步。',
       '他没有急着动手，只把呼吸放慢，等对方先露出破绽。',
-    ].join('\n') + '\n\n' + '泥水沿着门槛往屋里渗，陈渊把每一步都压得很稳。'.repeat(140);
+    ].join('\n') + '\n\n' + '环境要素沿着门槛往屋里渗，角色甲把每一步都压得很稳。'.repeat(140);
 
     const augmented = augmentChapterReviewProposal({
       chapterNumber: 4,

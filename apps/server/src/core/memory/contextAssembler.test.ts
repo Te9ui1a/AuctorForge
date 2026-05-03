@@ -7,16 +7,16 @@ describe('contextAssembler', () => {
     const excerpt = assembleMemoryContext({
       chapterNumber: 48,
       mode: 'write',
-      userMessage: '林照要追查账册去向',
+      userMessage: '角色甲要追查物件甲去向',
       chapters: Array.from({ length: 60 }, (_, index) => ({
         chapterNumber: index + 1,
         title: `第${index + 1}章`,
         summary: `第${index + 1}章摘要`,
         time: null,
         location: null,
-        activeCharacters: ['林照'],
+        activeCharacters: ['角色甲'],
         objects: [],
-        hooksOpened: index >= 40 ? ['账册下落'] : [],
+        hooksOpened: index >= 40 ? ['物件甲下落'] : [],
         hooksResolved: [],
         facts: [],
         evidence: [],
@@ -24,10 +24,10 @@ describe('contextAssembler', () => {
         updatedAt: '2026-04-27T00:00:00.000Z',
       })),
       entities: {
-        'character:林照': {
-          id: 'character:林照',
+        'character:角色甲': {
+          id: 'character:角色甲',
           kind: 'character',
-          name: '林照',
+          name: '角色甲',
           aliases: [],
           status: 'active',
           firstSeenChapter: 1,
@@ -50,7 +50,7 @@ describe('contextAssembler', () => {
     });
 
     expect(excerpt).toContain('第048章');
-    expect(excerpt).toContain('林照');
+    expect(excerpt).toContain('角色甲');
     expect(excerpt.length).toBeLessThanOrEqual(8000);
   });
 });

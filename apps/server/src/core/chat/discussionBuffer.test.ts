@@ -32,7 +32,7 @@ describe('discussionBuffer', () => {
 
     buffer.remember(defineStep, '  主角先活下来  ');
     buffer.remember(defineStep, '主角做决定时要果断');
-    buffer.remember(outlineStep, '第一卷先从宗门开始');
+    buffer.remember(outlineStep, '第一卷先从组织开始');
     buffer.remember(guideStep, '这条不应被记住');
 
     expect(buffer.snapshot()).toEqual([
@@ -46,7 +46,7 @@ describe('discussionBuffer', () => {
         stepId: 'outline-arc',
         substepId: 'arrange-beats',
         module: 'outline',
-        notes: ['第一卷先从宗门开始'],
+        notes: ['第一卷先从组织开始'],
       },
     ]);
 
@@ -56,7 +56,7 @@ describe('discussionBuffer', () => {
     restored.restore(buffer.snapshot());
 
     expect(restored.getNotes(defineStep)).toEqual(['主角先活下来', '主角做决定时要果断']);
-    expect(restored.getNotes(outlineStep)).toEqual(['第一卷先从宗门开始']);
+    expect(restored.getNotes(outlineStep)).toEqual(['第一卷先从组织开始']);
     expect(restored.getNotes(guideStep)).toEqual([]);
   });
 

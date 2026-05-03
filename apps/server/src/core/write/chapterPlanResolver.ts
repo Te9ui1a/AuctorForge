@@ -8,6 +8,7 @@ export type ChapterPlan = {
   summary: string;
   scenes: string[];
   hook: string;
+  signals?: string[];
 };
 
 export type ChapterPlanResolution =
@@ -53,7 +54,7 @@ export function resolveChapterPlanFromProjectFiles(
         ok: true,
         sourcePath,
         chapter,
-        chapters: parsed.map((item) => ({ number: item.number, title: item.title })),
+        chapters: parsed,
       };
     }
   }
@@ -98,6 +99,7 @@ export function parseChapterPlans(content: string): ChapterPlan[] {
       summary: extractChapterSummary(block),
       scenes: extractChapterScenes(block),
       hook: extractChapterHook(block),
+      signals: extractChapterSignals(block),
     });
   }
 
@@ -164,6 +166,12 @@ function extractChapterHook(block: string) {
 
   const lastScene = extractChapterScenes(block).at(-1);
   return lastScene ? cleanPlanText(lastScene) : '更大的风险已经逼近。';
+}
+
+function extractChapterSignals(block: string) {
+  return [...block.matchAll(/^\s*[-*]\s*(?:\*\*)?([^\n：:]{1,12}信号|关键资源|资源变化|后续揭示|关键揭示)(?:\*\*)?[：:]\s*([^\n\r]+)/gmu)]
+    .map((match) => `${cleanPlanText(match[1] ?? '')}：${cleanPlanText(match[2] ?? '')}`)
+    .filter((line) => line.length > 0);
 }
 
 function normalizeTitle(title: string) {

@@ -6,9 +6,9 @@ import { lintAiFlavor } from './aiFlavorLint';
 describe('aiFlavorRepairPlan', () => {
   it('maps lint hits to writing-move strategies instead of synonym replacement', () => {
     const lint = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
-      '老郑倒吸一口凉气，显然已经震惊到了极点。',
+      '角色乙倒吸一口凉气，显然已经震惊到了极点。',
       '这意味着他们已经没有退路。',
     ].join('\n'));
 
@@ -37,11 +37,11 @@ describe('aiFlavorRepairPlan', () => {
 
   it('escalates only when blocking issues are dense across multiple spans', () => {
     const content = [
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
-      '老郑倒吸一口凉气，嘴角勾起冷笑。',
+      '角色乙倒吸一口凉气，嘴角勾起冷笑。',
       '',
-      '沈砚深吸一口气，眼中精芒一闪。',
+      '角色甲深吸一口气，眼中精芒一闪。',
       '',
       '这意味着命运已经落下审判。',
       '',
@@ -58,8 +58,8 @@ describe('aiFlavorRepairPlan', () => {
   });
 
   it('verifies repaired prose and reports newly introduced issues', () => {
-    const passing = verifyAiFlavorRepair('老郑捏紧烟袋锅，铜锅沿在墙上磕了一下。');
-    const failing = verifyAiFlavorRepair('老郑倒吸一口凉气，嘴角勾起冷笑。');
+    const passing = verifyAiFlavorRepair('角色乙捏紧物件乙，物件乙边缘在墙上磕了一下。');
+    const failing = verifyAiFlavorRepair('角色乙倒吸一口凉气，嘴角勾起冷笑。');
 
     expect(passing.passed).toBe(true);
     expect(failing.passed).toBe(false);

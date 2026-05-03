@@ -1,6 +1,6 @@
 ## Context
 
-The previous onboarding work gave first-time users a fictional sample project and basic local-storage guidance. The next trust gap is discoverability: GitHub visitors need a concise reason to care, and app users need a visible reminder that their work is a local folder they can copy before trying real drafts.
+The previous onboarding work gave first-time users a workflow sample project and basic local-storage guidance. The next trust gap is discoverability: GitHub visitors need a concise reason to care, and app users need a visible reminder that their work is a local folder they can copy before trying real drafts.
 
 ## Goals
 
@@ -28,7 +28,7 @@ Add a small "稿件安全与备份" module to the startup page. It should state:
 
 - AuctorForge projects are normal local folders.
 - Backups can be made by copying the full project folder.
-- Use the Lantern Road sample before importing real manuscripts.
+- Use the Workflow Sample sample before importing real manuscripts.
 - Remote model providers may receive selected project text only when model-backed features are used.
 
 The module is informational and should not replace create/import/sample actions.

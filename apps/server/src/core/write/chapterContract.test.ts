@@ -6,11 +6,11 @@ describe('chapterContract', () => {
   it('parses the outlined max chapter number', () => {
     expect(
       getMaxOutlinedChapterNumber([
-        '第1章：夹缝求生',
+        '第1章：待填写开局章标题',
         '',
-        '第2章：借势藏锋',
+        '第2章：待填写承接章标题',
         '',
-        '第10章：黎明之火',
+        '第10章：待填写后续章标题',
       ].join('\n')),
     ).toBe(10);
   });
@@ -19,7 +19,7 @@ describe('chapterContract', () => {
     expect(parseOutlineChapters([
       '## 第001章 债契',
       '',
-      '- 场景1：沈砚在青岚宗杂役院被赵德柱逼签债契。',
+      '- 场景1：角色甲在组织甲杂役院被角色乙逼签债契。',
       '',
       '## 第002章 净尘符',
     ].join('\n'))).toEqual([
@@ -32,7 +32,7 @@ describe('chapterContract', () => {
     expect(parseOutlineChapters([
       '**第005章：外门坊市，钱记当铺**',
       '',
-      '**章节梗概**：沈砚潜入外门坊市。',
+      '**章节梗概**：角色甲潜入外门坊市。',
     ].join('\n'))).toEqual([
       { number: 5, title: '外门坊市，钱记当铺' },
     ]);
@@ -50,7 +50,7 @@ describe('chapterContract', () => {
       proposedWrites: [
         {
           path: '4-正文/第005章_草稿.md',
-          content: '# 第005章：伪装与诱饵\n\n' + '沈砚进入外门坊市。'.repeat(500),
+          content: '# 第005章：伪装与诱饵\n\n' + '角色甲进入外门坊市。'.repeat(500),
         },
       ],
     });
@@ -73,7 +73,7 @@ describe('chapterContract', () => {
       proposedWrites: [
         {
           path: '4-正文/第005章_草稿.md',
-          content: '# 第005章 错章\n\n' + '沈砚沿着旧仓外的墙根慢慢走。'.repeat(380),
+          content: '# 第005章 错章\n\n' + '角色甲沿着旧仓外的墙根慢慢走。'.repeat(380),
         },
       ],
     });
@@ -94,17 +94,17 @@ describe('chapterContract', () => {
             '# 全书结构总纲与前期细纲',
             '',
             '### 第8章：疯狂制符',
-            '- **开端**：沈砚日夜利用残镜制符。',
+            '- **开端**：角色甲日夜利用残镜制符。',
             '- **冲突**：修为太低限制制符效率。',
             '- **转折**：残镜提纯灵力反哺自身。',
-            '- **章末钩子**：沈砚决定推演更具杀伤力的底牌。',
+            '- **章末钩子**：角色甲决定推演更具杀伤力的底牌。',
           ].join('\n'),
         },
       ],
       proposedWrites: [
         {
           path: '4-正文/第008章_草稿.md',
-          content: '# 第008章 疯狂制符\n\n' + '沈砚伏在案前，一笔一画压住符纸里的火气。'.repeat(520),
+          content: '# 第008章 疯狂制符\n\n' + '角色甲伏在案前，一笔一画压住资源甲里的火气。'.repeat(520),
         },
       ],
     });
@@ -119,7 +119,7 @@ describe('chapterContract', () => {
       proposedWrites: [
         {
           path: '4-正文/第003章_草稿.md',
-          content: '# 第003章 黑山坊市\n\n' + '沈砚走进坊市深处，袖中的符纸被汗水压得发硬。'.repeat(320),
+          content: '# 第003章 黑山坊市\n\n' + '角色甲走进坊市深处，袖中的资源甲被汗水压得发硬。'.repeat(320),
         },
       ],
     });
@@ -137,13 +137,13 @@ describe('chapterContract', () => {
       projectFiles: [
         {
           path: '3-大纲/第01卷_章纲.md',
-          content: ['第1章：夹缝求生', '', '第2章：借势藏锋', '', '第3章：黎明之火'].join('\n'),
+          content: ['第1章：待填写开局章标题', '', '第2章：待填写承接章标题', '', '第3章：待填写后续章标题'].join('\n'),
         },
       ],
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 黎明之火（大结局）\n\n这一章直接大结局。',
+          content: '# 第001章 待填写后续章标题（大结局）\n\n这一章直接大结局。',
         },
       ],
     });
@@ -160,13 +160,13 @@ describe('chapterContract', () => {
       projectFiles: [
         {
           path: '3-大纲/第01卷_章纲.md',
-          content: ['第1章：夹缝求生', '', '第2章：借势藏锋'].join('\n'),
+          content: ['第1章：待填写开局章标题', '', '第2章：待填写承接章标题'].join('\n'),
         },
       ],
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 夹缝求生\n\n' + '这一章仍然只有摘要式正文。'.repeat(80),
+          content: '# 第001章 待填写开局章标题\n\n' + '这一章仍然只有摘要式正文。'.repeat(80),
         },
       ],
     });
@@ -184,13 +184,13 @@ describe('chapterContract', () => {
       projectFiles: [
         {
           path: '3-大纲/第01卷_章纲.md',
-          content: ['第1章：夹缝求生', '', '第2章：借势藏锋'].join('\n'),
+          content: ['第1章：待填写开局章标题', '', '第2章：待填写承接章标题'].join('\n'),
         },
       ],
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 夹缝求生\n\n' + '沈砚在雨里检查血铁线索。'.repeat(520),
+          content: '# 第001章 待填写开局章标题\n\n' + '角色甲在雨里检查线索甲线索。'.repeat(520),
         },
       ],
     });
@@ -204,13 +204,13 @@ describe('chapterContract', () => {
       projectFiles: [
         {
           path: '3-大纲/第01卷_章纲.md',
-          content: ['第1章：夹缝求生', '', '第2章：借势藏锋'].join('\n'),
+          content: ['第1章：待填写开局章标题', '', '第2章：待填写承接章标题'].join('\n'),
         },
       ],
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 夹缝求生\n\n' + '沈砚深吸一口气，继续查看血铁线索。'.repeat(190),
+          content: '# 第001章 待填写开局章标题\n\n' + '角色甲深吸一口气，继续查看线索甲线索。'.repeat(190),
         },
       ],
     });
@@ -218,21 +218,92 @@ describe('chapterContract', () => {
     expect(validation).toEqual({ ok: true });
   });
 
-  it('rejects chapter drafts that leak the old local fallback world when the project context uses different entities', () => {
+  it('rejects chapter drafts that consume future explicit project signals', () => {
+    const validation = validateChapterDraftProposal({
+      currentChapterNumber: 3,
+      projectFiles: [
+        {
+          path: '3-大纲/第01卷_章纲.md',
+          content: [
+            '### 第3章：当前章',
+            '- **章节梗概**：主角处理当前事件。',
+            '- 连续性信号：当前信号甲',
+            '- 场景1：处理当前信号甲。',
+            '- **章末钩子**：当前悬念继续。',
+            '',
+            '### 第5章：后续章',
+            '- **章节梗概**：后续揭示：未来信号甲、未来信号乙',
+            '- 场景1：处理未来信号甲。',
+            '- 场景2：处理未来信号乙。',
+          ].join('\n'),
+        },
+      ],
+      proposedWrites: [
+        {
+          path: '4-正文/第003章_草稿.md',
+          content: '# 第003章 当前章\n\n'
+            + '正文处理当前信号甲，却提前写到了未来信号甲和未来信号乙。'.repeat(120),
+        },
+      ],
+    });
+
+    expect(validation).toMatchObject({
+      ok: false,
+      code: 'chapter-draft-continuity-revise',
+      message: expect.stringContaining('提前消费后续章纲'),
+    });
+  });
+
+  it('rejects chapter drafts that introduce future explicit resource signals', () => {
+    const validation = validateChapterDraftProposal({
+      currentChapterNumber: 4,
+      projectFiles: [
+        {
+          path: '3-大纲/第01卷_章纲.md',
+          content: [
+            '### 第4章：当前章',
+            '- **章节梗概**：主角处理当前事件。',
+            '- 连续性信号：当前信号甲',
+            '- 场景1：处理当前信号甲。',
+            '',
+            '### 第6章：资源章',
+            '- **章节梗概**：资源状态变化。',
+            '- 资源信号：资源信号甲',
+            '- 场景1：资源信号甲进入项目状态。',
+          ].join('\n'),
+        },
+      ],
+      proposedWrites: [
+        {
+          path: '4-正文/第004章_草稿.md',
+          content: '# 第004章 当前章\n\n'
+            + '正文处理当前信号甲，又提前写到资源信号甲已经进入当前项目状态。'.repeat(120),
+        },
+      ],
+    });
+
+    expect(validation).toMatchObject({
+      ok: false,
+      code: 'chapter-draft-continuity-revise',
+      message: expect.stringContaining('资源信号'),
+    });
+  });
+
+  it('rejects chapter drafts that do not use the active role table entities', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 1,
       projectFiles: [
         {
           path: '2-设定/2.4_主要角色设定表.md',
-          content: '# 主要角色设定表\n\n## 沈砚\n青岚宗杂役弟子。\n\n## 赵德柱\n外门管事。',
+          content: '# 主要角色设定表\n\n## 角色甲\n组织甲杂役弟子。\n\n## 角色乙\n外门管事。',
         },
         {
           path: '3-大纲/第01卷_章纲.md',
           content: [
             '## 第001章 债契',
             '',
-            '- 场景1：沈砚在青岚宗杂役院被赵德柱逼签债契。',
-            '- 场景2：沈砚发现净尘符能洗去药渣。',
+            '- 场景1：角色甲在组织甲杂役院被角色乙逼签债契。',
+            '- 场景2：角色甲发现净尘符能洗去药渣。',
             '',
             '## 第002章 净尘符',
           ].join('\n'),
@@ -241,7 +312,7 @@ describe('chapterContract', () => {
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 债契\n\n' + '陈渊在棚户区被毒蛇帮刘三逼债，黑水仓的木牌落进泥水里。'.repeat(160),
+          content: '# 第001章 债契\n\n' + '陌生角色在区域甲被组织甲对手逼债，地点甲的木牌落进环境要素里。'.repeat(160),
         },
       ],
     });

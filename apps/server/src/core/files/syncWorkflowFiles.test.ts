@@ -74,17 +74,17 @@ describe('syncWorkflowFiles', () => {
     await writeFile(
       path.join(workspaceRoot, '3-大纲', '第01卷_章纲.md'),
       [
-        '第1章：夹缝求生',
+        '第1章：待填写开局章标题',
         '',
         '**章节梗概**：首章求生。',
         '',
-        '第2章：借势藏锋',
+        '第2章：待填写承接章标题',
         '',
         '**章节梗概**：第二章收束本卷。',
       ].join('\n'),
       'utf8',
     );
-    await writeFile(path.join(workspaceRoot, '4-正文', '第002章_草稿.md'), '# 第002章 借势藏锋\n\n正文草稿', 'utf8');
+    await writeFile(path.join(workspaceRoot, '4-正文', '第002章_草稿.md'), '# 第002章 待填写承接章标题\n\n正文草稿', 'utf8');
     await writeFile(path.join(workspaceRoot, '5-审查', '第002章_审查报告.md'), '# 第002章 审查报告\n\n通过', 'utf8');
 
     await syncWorkflowFiles({

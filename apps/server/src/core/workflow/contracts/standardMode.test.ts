@@ -94,6 +94,7 @@ describe('buildStandardModeContract', () => {
     });
     expect(contract.steps[5].substeps.map((substep) => substep.id)).toEqual([
       'chapter-draft',
+      'chapter-finalize',
       'chapter-pause',
     ]);
     expect(contract.steps[5].substeps[0]).toMatchObject({
@@ -113,7 +114,14 @@ describe('buildStandardModeContract', () => {
       next: { stepId: 'review-chapter', substepId: 'chapter-review', mode: 'standard' },
     });
     expect(contract.steps[5].substeps[1]).toMatchObject({
+      id: 'chapter-finalize',
+      allowedWrites: ['4-正文/第001章_草稿.md', '4-正文/第001章_定稿.md', 'PROJECT.md'],
+      needsApproval: true,
+      next: { stepId: 'write-chapter', substepId: 'chapter-pause', mode: 'standard' },
+    });
+    expect(contract.steps[5].substeps[2]).toMatchObject({
       id: 'chapter-pause',
+      allowedWrites: ['PROJECT.md'],
       needsApproval: false,
       next: null,
     });

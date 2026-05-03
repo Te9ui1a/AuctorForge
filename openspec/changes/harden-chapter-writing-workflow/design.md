@@ -5,7 +5,7 @@ The root-cause investigation found five coupled failures:
 - Intent routing treats messages like "继续生成第5章正文提案" as a generic next-chapter command while the workflow is in review.
 - The write path builds prompts with `<missing>` required files and continues instead of blocking.
 - Draft validation depends on parsing `3-大纲/第01卷_章纲.md`, but returns success when that file or parse result is missing.
-- Local fallback generation contains hard-coded legacy prose and entities, so it can contaminate unrelated projects when model generation fails or credentials are absent.
+- Source-embedded creative backup content can contaminate unrelated projects when model generation fails or credentials are absent; creative generation should fail closed instead.
 - Runtime workflow state advances in memory, but `.novelflow/chat/session.json` is only updated by the frontend session-save endpoint, so refresh/reopen can restore stale chapter position.
 
 The fix should make invalid states impossible to advance through, not merely detect bad write paths after the fact.
@@ -16,7 +16,7 @@ The fix should make invalid states impossible to advance through, not merely det
 - Make explicit chapter numbers authoritative and unambiguous.
 - Block chapter draft generation when the required chapter plan source is missing or unparsable.
 - Validate every proposed chapter draft before it can become pending approval.
-- Ensure fallback generation is project-bound and never emits stale template characters, factions, or locations.
+- Ensure production code never emits source-embedded creative content when model generation is unavailable.
 - Persist workflow state after server-side workflow mutations.
 - Provide regression tests for the observed failure sequence and for safe recovery.
 
@@ -71,11 +71,11 @@ Write-stage generation should block on `missing` or `unparsable`; it should not 
 
 This turns "missing context" into a product error rather than a silent bypass.
 
-### 4. Constrain fallback generation to active project data
+### 4. Require a configured model for creative generation
 
-Local fallback should be safe scaffolding, not a hidden story generator with fixed sample characters. It must derive names, factions, places, objects, and conflicts from active project files. If the project lacks enough data for a safe fallback chapter, the server should return a blocking proposal error rather than emitting legacy prose.
+Creative proposals should be model-generated. If credentials are missing, the server should return a blocking `proposal-model-required` error. If a configured model returns empty, invalid, or incomplete content, the server should surface the structured model error instead of silently substituting local story content.
 
-Legacy hard-coded terms like "陈渊", "毒蛇帮", "黑水仓", "刘三", and unrelated fallback scenes should be removed from production fallback chapter generation and kept only in tests/fixtures if still useful.
+Production source must not embed any concrete story-world entities or scenes. Tests should use neutral fixtures or explicit model stubs. Concrete example material belongs in sample project assets, not in runtime logic.
 
 ### 5. Persist workflow after mutating chat turns
 
@@ -100,5 +100,5 @@ This can be test-only or logger-level output, not necessarily part of the public
 
 - Blocking when chapter plans are missing may interrupt current loose workflows. Mitigation: support parsing approved per-chapter sections from the master outline and provide clear remediation messages.
 - Route precedence changes can affect existing "继续第2章" shortcuts. Mitigation: preserve behavior when the requested chapter is exactly current + 1.
-- Fallback quality may drop when project data is sparse. Mitigation: fail with a useful setup message rather than generate contaminated prose.
+- Users without model credentials will see blocking proposal errors instead of draft scaffolds. Mitigation: provide a clear setup message and keep sample project assets available for onboarding.
 - Persisting after every chat turn adds disk writes. Mitigation: only persist after state-mutating turns and keep payload small.

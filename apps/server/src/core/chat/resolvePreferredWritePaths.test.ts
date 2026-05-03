@@ -40,6 +40,26 @@ describe('resolvePreferredWritePaths', () => {
     expect(preferred).toEqual(['4-正文/第004章_草稿.md', '.novelkit/memory/character_state.md', 'PROJECT.md']);
   });
 
+  it('prefers the current final draft path for finalization requests', () => {
+    const preferred = resolvePreferredWritePaths({
+      userPrompt: '用户消息：按审查报告生成第4章定稿。',
+      strictWorkflowWrites: ['4-正文/第004章_草稿.md', '4-正文/第004章_定稿.md', 'PROJECT.md'],
+      chatAllowedWrites: ['4-正文/第004章_草稿.md', '4-正文/第004章_定稿.md', 'PROJECT.md'],
+    });
+
+    expect(preferred).toEqual(['4-正文/第004章_定稿.md', '4-正文/第004章_草稿.md', 'PROJECT.md']);
+  });
+
+  it('keeps the current draft path first for ordinary chapter revision requests', () => {
+    const preferred = resolvePreferredWritePaths({
+      userPrompt: '用户消息：继续修改第4章草稿。',
+      strictWorkflowWrites: ['4-正文/第004章_草稿.md', '4-正文/第004章_定稿.md', 'PROJECT.md'],
+      chatAllowedWrites: ['4-正文/第004章_草稿.md', '4-正文/第004章_定稿.md', 'PROJECT.md'],
+    });
+
+    expect(preferred).toEqual(['4-正文/第004章_草稿.md', '4-正文/第004章_定稿.md', 'PROJECT.md']);
+  });
+
   it('falls back to strict workflow writes when no clear file target exists', () => {
     const preferred = resolvePreferredWritePaths({
       userPrompt: '用户消息：先生成一版。',

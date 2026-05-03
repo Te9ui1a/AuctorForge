@@ -6,7 +6,7 @@ async function loadAssistantErrorsModule() {
 }
 
 describe('assistantErrors', () => {
-  it('creates an assistant error for missing API keys with typed metadata', async () => {
+  it('creates an assistant error when a model is required with typed metadata', async () => {
     const assistantErrors = await loadAssistantErrorsModule();
 
     expect(assistantErrors).not.toBeNull();
@@ -14,11 +14,11 @@ describe('assistantErrors', () => {
       return;
     }
 
-    const error = assistantErrors.createAssistantApiKeyMissingError();
+    const error = assistantErrors.createAssistantModelRequiredError();
 
     expect(error).toMatchObject({
       name: 'AssistantGenerationError',
-      code: 'proposal-api-key-missing',
+      code: 'proposal-model-required',
       statusCode: 503,
     });
     expect(assistantErrors.isAssistantGenerationError(error)).toBe(true);

@@ -5,7 +5,7 @@ First-time users currently land on a polished launcher, but the app does not yet
 ## What Changes
 
 - Add a first-run onboarding surface on the startup screen that explains the safe trial path.
-- Provide a fictional sample-content entry point so users can explore the workbench without private manuscript text.
+- Provide a workflow sample-content entry point so users can explore the workbench without private manuscript text.
 - Make local project storage and remote model-request boundaries visible before users create/import a project or configure a provider.
 - Add clear empty/error states when no project or model provider is configured.
 - Preserve the existing create/import/recent-project flows and project file formats.

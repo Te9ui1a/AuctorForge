@@ -135,7 +135,7 @@ function extractCharacters(content: string, characterStateContent?: string | nul
 }
 
 function isLikelyCharacterName(name: string) {
-  return !/第\d+章|随后|然后|于是|接着|夜雨来信|角色表/u.test(name);
+  return !/第\d+章|随后|然后|于是|接着|角色表/u.test(name);
 }
 
 function extractObjects(content: string) {
@@ -243,6 +243,12 @@ function extractContinuityWarnings(content: string) {
   const warnings: string[] = [];
   if (/提前结局|大结局|全书完/u.test(content)) {
     warnings.push('早期终局措辞');
+  }
+  for (const match of content.matchAll(/命中类型[：:]\s*([^\n\r]+)/gu)) {
+    warnings.push(...(match[1] ?? '').split(/[、,，\s]+/u));
+  }
+  if (/提前消费后续章纲/u.test(content)) {
+    warnings.push('提前消费后续章纲');
   }
   return warnings;
 }

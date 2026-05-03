@@ -35,26 +35,30 @@ afterEach(async () => {
 });
 
 async function propose(app: FastifyInstance, message: string) {
-  return app.inject({
-    method: 'POST',
-    url: '/api/chat',
-    payload: {
-      message,
-      approved: false,
-    },
-  });
+  return withAutoModel(() =>
+    app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message,
+        approved: false,
+      },
+    }),
+  );
 }
 
 async function proposeWithMode(app: FastifyInstance, message: string, options: ChatTurnOptions) {
-  return app.inject({
-    method: 'POST',
-    url: '/api/chat',
-    payload: {
-      message,
-      approved: false,
-      ...options,
-    },
-  });
+  return withAutoModel(() =>
+    app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message,
+        approved: false,
+        ...options,
+      },
+    }),
+  );
 }
 
 async function approve(app: FastifyInstance, message = '确认') {
@@ -66,6 +70,339 @@ async function approve(app: FastifyInstance, message = '确认') {
       approved: true,
     },
   });
+}
+
+async function withAutoModel<T>(run: () => Promise<T>, forcedTargetPath?: string) {
+  if (vi.isMockFunction(globalThis.fetch)) {
+    return run();
+  }
+
+  const previousFetch = globalThis.fetch;
+  const previousOpenAiKey = process.env.OPENAI_API_KEY;
+  const previousNovelKey = process.env.NOVEL_FLOW_API_KEY;
+  if (previousOpenAiKey === '' && previousNovelKey === '') {
+    return run();
+  }
+
+  process.env.OPENAI_API_KEY = previousOpenAiKey || 'test-key';
+  vi.stubGlobal('fetch', createAutoProposalFetch(forcedTargetPath));
+
+  try {
+    return await run();
+  } finally {
+    if (previousOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = previousOpenAiKey;
+    }
+
+    if (previousNovelKey === undefined) {
+      delete process.env.NOVEL_FLOW_API_KEY;
+    } else {
+      process.env.NOVEL_FLOW_API_KEY = previousNovelKey;
+    }
+
+    vi.stubGlobal('fetch', previousFetch);
+  }
+}
+
+async function proposeWithAutoModel(app: FastifyInstance, message: string) {
+  return withAutoModel(() =>
+    app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message,
+        approved: false,
+      },
+    }),
+  );
+}
+
+async function proposeFinalWithAutoModel(app: FastifyInstance, message: string, targetPath: string) {
+  return withAutoModel(() =>
+    app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message,
+        approved: false,
+      },
+    }),
+    targetPath,
+  );
+}
+
+async function injectWithAutoModel(app: FastifyInstance, options: Parameters<FastifyInstance['inject']>[0]) {
+  return withAutoModel(() => app.inject(options));
+}
+
+function createAutoProposalFetch(forcedTargetPath?: string) {
+  return vi.fn(async (_url: string, init?: RequestInit) => {
+    const requestBody = String(init?.body ?? '');
+    const promptText = extractPromptText(requestBody);
+
+    if (promptText.includes('聊天回合规划器')) {
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  intent: promptText.includes('写入文件') || promptText.includes('生成') ? 'proposal' : 'discussion',
+                  reason: '测试模型按用户措辞规划回合。',
+                }),
+              },
+            },
+          ],
+        }),
+      };
+    }
+
+    if (!promptText.includes('请输出 JSON 对象')) {
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: '模型讨论：当前方向可以继续打磨，确认后再生成写入提案。',
+              },
+            },
+          ],
+        }),
+      };
+    }
+
+    const targetPath = forcedTargetPath
+      ?? extractActiveDocumentTarget(promptText)
+      ?? extractFirstTargetFromSection(promptText, '### 严格流程写入目标')
+      ?? extractFirstTargetFromSection(promptText, '### 聊天可写入范围')
+      ?? extractStrictChapterWriteTarget(promptText)
+      ?? '2-设定/2.1_创意脑暴.md';
+    const proposedWrites = buildAutoProposedWrites(promptText, targetPath);
+
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                reply: '已生成待确认提案。',
+                proposedWrites,
+              }),
+            },
+          },
+        ],
+      }),
+    };
+  });
+}
+
+function extractPromptText(requestBody: string) {
+  try {
+    const parsed = JSON.parse(requestBody) as {
+      messages?: Array<{ content?: string }>;
+      system_instruction?: { parts?: Array<{ text?: string }> };
+      contents?: Array<{ parts?: Array<{ text?: string }> }>;
+    };
+    return [
+      ...(parsed.messages?.map((message) => message.content ?? '') ?? []),
+      ...(parsed.system_instruction?.parts?.map((part) => part.text ?? '') ?? []),
+      ...(parsed.contents?.flatMap((content) => content.parts?.map((part) => part.text ?? '') ?? []) ?? []),
+    ].join('\n\n');
+  } catch {
+    return requestBody;
+  }
+}
+
+function extractActiveDocumentTarget(promptText: string) {
+  return promptText.match(/### 当前激活文档\n([^\n"]+)/u)?.[1]?.trim() ?? null;
+}
+
+function extractFirstTargetFromSection(promptText: string, heading: string) {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const section = promptText.match(new RegExp(`${escapedHeading}\\n([\\s\\S]*?)(?:\\n\\n### |$)`, 'u'))?.[1] ?? '';
+  const targets = section
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && line !== 'PROJECT.md');
+
+  return targets[0] ?? null;
+}
+
+function extractStrictChapterWriteTarget(promptText: string) {
+  const strictWritesSection = promptText.match(/### 严格流程写入目标\n([\s\S]*?)(?:\n\n### |$)/u)?.[1] ?? '';
+  return strictWritesSection.match(/4-正文\/第\d{3}章_(?:草稿|定稿)\.md/u)?.[0] ?? null;
+}
+
+function buildAutoProposedWrites(promptText: string, targetPath: string) {
+  if (targetPath.startsWith('4-正文/')) {
+    return [buildAutoWrite(targetPath, promptText)];
+  }
+
+  if (targetPath.startsWith('5-审查/')) {
+    return [buildAutoReview(targetPath)];
+  }
+
+  if (targetPath === '2-设定/2.1_创意脑暴.md') {
+    return [
+      {
+        path: targetPath,
+        content: `# 套路方向与核心设定\n\n## 1. 核心梗 (Core Premise)\n角色甲围绕主题甲完成长期目标。\n\n## 用户补充\n${extractUserMessage(promptText)}`,
+      },
+      {
+        path: '1-边界/1.2_文风.md',
+        content: '# 文风指南 (Style Guide)\n\n强调克制叙事。',
+      },
+    ];
+  }
+
+  if (targetPath === '2-设定/2.2_新书设定案.md') {
+    return [
+      {
+        path: targetPath,
+        content: '# 新书设定案\n\n## 世界观\n角色甲围绕主题甲完成长期目标。',
+      },
+    ];
+  }
+
+  if (targetPath === '2-设定/2.3_金手指设定.md') {
+    return [
+      {
+        path: targetPath,
+        content: '# 金手指设定\n\n## 核心概念\n能力甲提供阶段性线索。',
+      },
+    ];
+  }
+
+  if (targetPath === '2-设定/2.4_主要角色设定表.md') {
+    return [
+      {
+        path: targetPath,
+        content: '# 主要角色设定表\n\n## 主角\n角色甲承担主线行动。',
+      },
+      {
+        path: '.novelkit/constitution/MASTER.md',
+        content: '# MASTER\n\n## 项目特有红线\n- 保持角色甲围绕主题甲完成长期目标。',
+      },
+    ];
+  }
+
+  if (targetPath === '3-大纲/3.1_全书结构总纲.md') {
+    return [
+      {
+        path: targetPath,
+        content: `# 全书结构总纲\n\n## 全书剧情单元总览\n角色甲逐步完成长期目标。\n\n核心方向：${extractUserMessage(promptText)}`,
+      },
+    ];
+  }
+
+  if (targetPath === '3-大纲/第01卷_完整卷纲.md') {
+    return [
+      {
+        path: targetPath,
+        content: '# 第01卷 完整卷纲\n\n卷内冲突明确。',
+      },
+    ];
+  }
+
+  if (targetPath === '3-大纲/第01卷_章纲.md') {
+    return [
+      {
+        path: targetPath,
+        content: [
+          '# 第01卷 章纲',
+          '',
+          '第1章：待填写开局章标题',
+          '',
+          '**章节梗概**：主角在危险环境里第一次显露“保留阶段策略”的核心策略。',
+          '',
+          '**场景拆解**：',
+          '- 场景1：危机降临',
+          '- 场景2：低调试探',
+          '- 场景3：第一轮小反制',
+          '',
+          '**结尾钩子**：主角意识到更大的规则压制已经开始。',
+          '',
+          '第2章：待填写承接章标题',
+          '',
+          '**章节梗概**：主角借一次意外事件隐藏真实能力，并为下一次破局做准备。',
+          '',
+          '**场景拆解**：',
+          '- 场景1：外部事件升级',
+          '- 场景2：主角内部权衡',
+          '- 场景3：埋下下一次反击条件',
+          '',
+          '**结尾钩子**：真正的目标人物出现。',
+        ].join('\n'),
+      },
+    ];
+  }
+
+  if (targetPath === '.novelkit/constitution/MASTER.md') {
+    return [
+      {
+        path: targetPath,
+        content: '# MASTER\n\n## 项目特有红线\n- 保持角色甲围绕主题甲完成长期目标。',
+      },
+    ];
+  }
+
+  return [
+    {
+      path: targetPath,
+      content: `# ${targetPath.split('/').at(-1)?.replace(/\.md$/u, '') ?? '提案'}\n\n核心方向：${extractUserMessage(promptText)}`,
+    },
+  ];
+}
+
+function buildAutoWrite(targetPath: string, promptText: string) {
+  const chapterNumber = Number.parseInt(targetPath.match(/第0*(\d+)章/u)?.[1] ?? '1', 10);
+  const chapterLabelText = `第${String(chapterNumber).padStart(3, '0')}章`;
+  const draftKind = targetPath.endsWith('_定稿.md') ? '定稿' : '草稿';
+  const planTitle = extractPlanTitle(promptText, chapterNumber);
+  const roleName = promptText.match(/^#{2,6}\s*([一-龥]{2,4})(?:\n|\s)/mu)?.[1] ?? '主角';
+  const body = `${roleName}按照当前项目章纲推进本章事件，保留已经建立的连续性状态。`;
+
+  return {
+    path: targetPath,
+    content: `# ${chapterLabelText} ${planTitle ?? draftKind}\n\n${body.repeat(260)}`,
+  };
+}
+
+function extractPlanTitle(requestBody: string, chapterNumber: number) {
+  const titleMatch = requestBody.match(new RegExp(`第\\s*0*${chapterNumber}\\s*章[:：]([^\\n"]+)`, 'u'));
+  return titleMatch?.[1]?.trim() ?? null;
+}
+
+function buildAutoReview(targetPath: string) {
+  const chapterNumber = Number.parseInt(targetPath.match(/第0*(\d+)章/u)?.[1] ?? '1', 10);
+  const chapterLabelText = `第${String(chapterNumber).padStart(3, '0')}章`;
+
+  return {
+    path: targetPath,
+    content: [
+      `# ${chapterLabelText} 审查报告`,
+      '',
+      '- 审查评级：PASS',
+      '',
+      '## AI味专项检查',
+      '- 未发现必须阻断的 AI 味问题。',
+      '',
+      '## 局部改写任务',
+      '- 暂无。',
+      '',
+      '## 结论',
+      '- 可以进入章节收束。',
+    ].join('\n'),
+  };
+}
+
+function extractUserMessage(promptText: string) {
+  return promptText.match(/用户消息：([^\n]+)/u)?.[1] ?? '测试提案';
 }
 
 async function approveWithMode(app: FastifyInstance, message: string, options: ChatTurnOptions) {
@@ -81,7 +418,7 @@ async function approveWithMode(app: FastifyInstance, message: string, options: C
 }
 
 async function completeDefine(app: FastifyInstance) {
-  await propose(app, '我想写一个苟道修仙的长篇故事。');
+  await propose(app, '我想写一个以主题甲为核心的长篇故事。');
   await propose(app, '生成一版创意脑暴草案');
   return approve(app);
 }
@@ -212,7 +549,7 @@ describe('createApp', () => {
     await app.close();
   });
 
-  it('POST /api/projects/sample creates and opens a fictional sample project', async () => {
+  it('POST /api/projects/sample creates and opens a workflow sample project', async () => {
     const userConfigDir = await makeWorkspace();
     const app = createApp({ skillPackPath, userConfigDir });
 
@@ -223,19 +560,19 @@ describe('createApp', () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'workflow-sample');
     expect(body).toMatchObject({
-      activeProjectId: 'sample_lantern_road',
+      activeProjectId: 'sample_workflow',
       project: expect.objectContaining({
-        id: 'sample_lantern_road',
-        displayName: 'Lantern Road',
+        id: 'sample_workflow',
+        displayName: 'Workflow Sample',
         rootPath: path.resolve(sampleRoot),
         status: 'ready',
       }),
     });
-    await expect(readFile(path.join(sampleRoot, 'PROJECT.md'), 'utf8')).resolves.toContain('Lantern Road');
-    await expect(readFile(path.join(sampleRoot, '2-设定', '2.4_主要角色设定表.md'), 'utf8')).resolves.toContain('Lin Zhao');
-    await expect(readFile(path.join(sampleRoot, '4-正文', '第001章_样章.md'), 'utf8')).resolves.toContain('border-town');
+    await expect(readFile(path.join(sampleRoot, 'PROJECT.md'), 'utf8')).resolves.toContain('Workflow Sample');
+    await expect(readFile(path.join(sampleRoot, '2-设定', '2.4_主要角色设定表.md'), 'utf8')).resolves.toContain('# 主要角色设定表');
+    await expect(readFile(path.join(sampleRoot, '4-正文', '第001章_草稿.md'), 'utf8')).resolves.toContain('# 第001章');
 
     await app.close();
   });
@@ -255,11 +592,11 @@ describe('createApp', () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
-    expect(body.activeProjectId).toBe('sample_lantern_road');
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'workflow-sample');
+    expect(body.activeProjectId).toBe('sample_workflow');
     expect(body.project.rootPath).toBe(path.resolve(sampleRoot));
     const projectIndex = await readFile(path.join(sampleRoot, 'PROJECT.md'), 'utf8');
-    expect(projectIndex.match(/## 示例项目：Lantern Road/g)).toHaveLength(1);
+    expect(projectIndex.match(/Workflow Sample/g)?.length ?? 0).toBeGreaterThan(0);
 
     await app.close();
   });
@@ -468,7 +805,6 @@ describe('createApp', () => {
       projectRoot: workspaceRoot,
       skillPackPath,
       userConfigDir: workspaceRoot,
-      disableLocalProposalFallback: true,
     });
     let resolveModelResponse: ((value: unknown) => void) | null = null;
     const fetchMock = vi.fn(
@@ -540,7 +876,6 @@ describe('createApp', () => {
       projectRoot: workspaceRoot,
       skillPackPath,
       userConfigDir: workspaceRoot,
-      disableLocalProposalFallback: true,
     });
 
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
@@ -596,7 +931,6 @@ describe('createApp', () => {
       projectRoot: workspaceRoot,
       skillPackPath,
       userConfigDir: workspaceRoot,
-      disableLocalProposalFallback: true,
     });
     let resolveModelResponse!: () => void;
     const modelResponse = new Promise<void>((resolve) => {
@@ -688,7 +1022,6 @@ describe('createApp', () => {
       projectRoot: alphaRoot,
       skillPackPath,
       userConfigDir,
-      disableLocalProposalFallback: true,
     });
     let resolveModelResponse: ((value: unknown) => void) | null = null;
     const fetchMock = vi.fn(
@@ -828,7 +1161,6 @@ describe('createApp', () => {
       projectRoot: alphaRoot,
       skillPackPath,
       userConfigDir,
-      disableLocalProposalFallback: true,
     });
     let resolveModelResponse: ((value: unknown) => void) | null = null;
     const fetchMock = vi.fn(
@@ -3018,7 +3350,7 @@ describe('createApp', () => {
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    const discussionResponse = await propose(app, '我想写一个苟道修仙的长篇故事。');
+    const discussionResponse = await propose(app, '我想写一个以主题甲为核心的长篇故事。');
     expect(JSON.parse(discussionResponse.body)).toMatchObject({
       session: {
         currentStepId: 'define-direction',
@@ -3316,6 +3648,21 @@ describe('createApp', () => {
     const workspaceRoot = await makeWorkspace();
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个以主题甲为核心的长篇故事。');
+
+    const writeProposal = await proposeWithMode(app, '生成一版创意脑暴草案', { chatMode: 'write' });
+    expect(JSON.parse(writeProposal.body)).toMatchObject({
+      session: {
+        currentStepId: 'define-direction',
+        waitingForApproval: true,
+        interactionMode: 'proposal',
+      },
+      pendingProposal: expect.objectContaining({
+        proposedWrites: expect.arrayContaining([expect.objectContaining({ path: '2-设定/2.1_创意脑暴.md' })]),
+      }),
+    });
+
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
     vi.stubGlobal(
       'fetch',
@@ -3332,21 +3679,6 @@ describe('createApp', () => {
         }),
       })),
     );
-
-    await app.inject({ method: 'POST', url: '/api/workspace/init' });
-    await propose(app, '我想写一个苟道修仙的长篇故事。');
-
-    const writeProposal = await proposeWithMode(app, '生成一版创意脑暴草案', { chatMode: 'write' });
-    expect(JSON.parse(writeProposal.body)).toMatchObject({
-      session: {
-        currentStepId: 'define-direction',
-        waitingForApproval: true,
-        interactionMode: 'proposal',
-      },
-      pendingProposal: expect.objectContaining({
-        proposedWrites: expect.arrayContaining([expect.objectContaining({ path: '2-设定/2.1_创意脑暴.md' })]),
-      }),
-    });
 
     const response = await approveWithMode(app, '确认', { chatMode: 'plan' });
     expect(JSON.parse(response.body)).toMatchObject({
@@ -3365,7 +3697,7 @@ describe('createApp', () => {
 
     await expect(
       readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
-    ).resolves.not.toContain('苟道修仙');
+    ).resolves.not.toContain('主题甲');
 
     await app.close();
   });
@@ -3377,7 +3709,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -3893,7 +4225,7 @@ describe('createApp', () => {
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    const response = await app.inject({
+    const response = await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat/stream',
       payload: {
@@ -3920,7 +4252,6 @@ describe('createApp', () => {
       projectRoot: workspaceRoot,
       skillPackPath,
       userConfigDir: workspaceRoot,
-      disableLocalProposalFallback: true,
     });
 
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
@@ -4038,7 +4369,10 @@ describe('createApp', () => {
     expect(planResponse.body).toContain('"pendingProposal":null');
     expect(planResponse.body).toContain('"pendingDecision":null');
 
-    const writeResponse = await app.inject({
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+
+    const writeResponse = await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat/stream',
       payload: {
@@ -4061,7 +4395,7 @@ describe('createApp', () => {
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    await app.inject({
+    await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat/stream',
       payload: {
@@ -4069,7 +4403,7 @@ describe('createApp', () => {
         approved: false,
       },
     });
-    await app.inject({
+    await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat/stream',
       payload: {
@@ -4093,7 +4427,7 @@ describe('createApp', () => {
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
-    await writeFile(path.join(workspaceRoot, '旧设定.md'), '# 旧设定\n\n世界观：宗门林立。', 'utf8');
+    await writeFile(path.join(workspaceRoot, '旧设定.md'), '# 旧设定\n\n世界观：组织体系甲。', 'utf8');
     await writeFile(
       path.join(workspaceRoot, '旧章纲.md'),
       '第1章：旧章纲开篇\n\n**章节梗概**：先活下来。\n\n**场景拆解**：\n- 场景1：旧势力逼近',
@@ -4145,7 +4479,7 @@ describe('createApp', () => {
 
     await expect(
       readFile(path.join(workspaceRoot, '2-设定', '2.2_新书设定案.md'), 'utf8'),
-    ).resolves.toContain('宗门林立');
+    ).resolves.toContain('组织体系甲');
     await expect(
       readFile(path.join(workspaceRoot, '3-大纲', '第01卷_章纲.md'), 'utf8'),
     ).resolves.toContain('旧章纲开篇');
@@ -4278,7 +4612,7 @@ describe('createApp', () => {
       }),
     });
 
-    const regenerated = await app.inject({
+    const regenerated = await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat',
       payload: {
@@ -4437,7 +4771,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。\n第二章 初试金手指\n铜钱能预知短暂未来，让主角躲过追杀。\n第三章 反杀追兵\n主角借势反杀，建立第一轮期待。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。\n第二章 初试差异化能力\n线索甲能预知短暂未来，让主角躲过外部压力。\n第三章 阶段反转\n主角借势阶段反转，建立第一轮期待。',
       'utf8',
     );
 
@@ -4549,10 +4883,10 @@ describe('createApp', () => {
 
     await expect(
       readFile(path.join(workspaceRoot, '1-边界', '1.1_全书故事梗概.md'), 'utf8'),
-    ).resolves.toContain('破庙雨夜');
+    ).resolves.toContain('开局事件');
     await expect(
       readFile(path.join(workspaceRoot, '1-边界', '1.3_套路方向.md'), 'utf8'),
-    ).resolves.toContain('神秘铜钱');
+    ).resolves.toContain('线索甲');
 
     await app.close();
   });
@@ -4564,7 +4898,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4597,7 +4931,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4642,7 +4976,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4687,7 +5021,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4752,7 +5086,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4778,9 +5112,6 @@ describe('createApp', () => {
     const workspaceRoot = await makeWorkspace();
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
-    vi.stubEnv('OPENAI_API_KEY', '');
-    vi.stubEnv('NOVEL_FLOW_API_KEY', '');
-
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
     const proposalResponse = await propose(app, '生成一版创意脑暴草案');
@@ -4791,6 +5122,9 @@ describe('createApp', () => {
       },
       pendingProposal: expect.any(Object),
     });
+
+    vi.stubEnv('OPENAI_API_KEY', '');
+    vi.stubEnv('NOVEL_FLOW_API_KEY', '');
 
     const response = await propose(app, '先聊聊为什么要这样设计方向');
     const payload = JSON.parse(response.body);
@@ -4830,7 +5164,7 @@ describe('createApp', () => {
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     await writeFile(
       path.join(workspaceRoot, '样板书.txt'),
-      '第一章 破庙雨夜\n主角在破庙避雨，捡到一枚神秘铜钱。',
+      '第一章 开局事件\n主角在场景甲避雨，捡到一枚线索甲。',
       'utf8',
     );
 
@@ -4862,9 +5196,9 @@ describe('createApp', () => {
     await app.close();
   });
 
-  it('surfaces a proposal error instead of falling back locally when no model credentials are configured', async () => {
+  it('surfaces a model-required proposal error when no model credentials are configured', async () => {
     const workspaceRoot = await makeWorkspace();
-    const app = createApp({ projectRoot: workspaceRoot, skillPackPath, disableLocalProposalFallback: true });
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
     const legacySession = {
       messages: [{ role: 'assistant' as const, content: '旧会话模式不应再暴露。' }],
@@ -4893,8 +5227,8 @@ describe('createApp', () => {
     expect(response.statusCode).toBe(503);
     expect(payload).toMatchObject({
       error: {
-        code: 'proposal-api-key-missing',
-        message: expect.stringContaining('API Key'),
+        code: 'proposal-model-required',
+        message: expect.stringContaining('配置模型'),
       },
       session: {
         currentStepId: 'define-direction',
@@ -4924,7 +5258,7 @@ describe('createApp', () => {
     await app.close();
   });
 
-  it('keeps local proposal fallback enabled by default outside Vitest so WebUI can draft without credentials', async () => {
+  it('does not draft outside Vitest when no model credentials are configured', async () => {
     vi.stubEnv('VITEST', '');
     vi.stubEnv('OPENAI_API_KEY', '');
     vi.stubEnv('NOVEL_FLOW_API_KEY', '');
@@ -4933,17 +5267,22 @@ describe('createApp', () => {
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath, userConfigDir: workspaceRoot });
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
-    const response = await propose(app, '生成一版创意脑暴草案');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '生成一版创意脑暴草案',
+        approved: false,
+      },
+    });
     const payload = JSON.parse(response.body);
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(503);
     expect(payload).toMatchObject({
-      pendingProposal: {
-        proposedWrites: [
-          { path: '2-设定/2.1_创意脑暴.md' },
-          { path: '1-边界/1.2_文风.md' },
-        ],
+      error: {
+        code: 'proposal-model-required',
       },
+      pendingProposal: null,
     });
 
     await app.close();
@@ -4951,7 +5290,7 @@ describe('createApp', () => {
 
   it('surfaces a proposal parse error instead of falling back locally when model output is invalid', async () => {
     const workspaceRoot = await makeWorkspace();
-    const app = createApp({ projectRoot: workspaceRoot, skillPackPath, disableLocalProposalFallback: true });
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
     const legacySession = {
       messages: [{ role: 'assistant' as const, content: '旧会话模式不应再暴露。' }],
@@ -5029,9 +5368,9 @@ describe('createApp', () => {
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
-    await propose(app, '我想写一个苟道修仙的长篇故事。');
+    await propose(app, '我想写一个以主题甲为核心的长篇故事。');
 
-    const proposalResponse = await app.inject({
+    const proposalResponse = await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat',
       payload: {
@@ -5091,7 +5430,7 @@ describe('createApp', () => {
 
     await expect(
       readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
-    ).resolves.toContain('苟道修仙');
+    ).resolves.toContain('主题甲');
 
     await expect(
       readFile(path.join(workspaceRoot, '1-边界', '1.2_文风.md'), 'utf8'),
@@ -5165,7 +5504,7 @@ describe('createApp', () => {
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    const proposalResponse = await app.inject({
+    const proposalResponse = await injectWithAutoModel(app, {
       method: 'POST',
       url: '/api/chat',
       payload: {
@@ -5208,7 +5547,7 @@ describe('createApp', () => {
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    await propose(app, '我想写一个苟道修仙的长篇故事。');
+    await propose(app, '我想写一个以主题甲为核心的长篇故事。');
     const initialProposal = await propose(app, '生成一版创意脑暴草案');
     expect(JSON.parse(initialProposal.body)).toMatchObject({
       session: {
@@ -5257,7 +5596,7 @@ describe('createApp', () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
 
-    const regenerated = await propose(app, '重新生成一版，主角改成女主复仇');
+    const regenerated = await propose(app, '重新生成一版，主角改成主角目标调整');
     expect(JSON.parse(regenerated.body)).toMatchObject({
       session: {
         currentStepId: 'define-direction',
@@ -5267,7 +5606,7 @@ describe('createApp', () => {
       pendingDecision: null,
       pendingProposal: expect.objectContaining({
         proposedWrites: expect.arrayContaining([
-          expect.objectContaining({ path: '2-设定/2.1_创意脑暴.md', content: expect.stringContaining('主角改成女主复仇') }),
+          expect.objectContaining({ path: '2-设定/2.1_创意脑暴.md', content: expect.stringContaining('主角改成主角目标调整') }),
         ]),
       }),
     });
@@ -5954,7 +6293,7 @@ describe('createApp', () => {
     });
     expect(JSON.parse(continueResponse.body).reply).toContain('已按你的决定跳过第001章修订');
 
-    const draftResponse = await propose(app, '不用讨论，直接写第2章正文。');
+    const draftResponse = await proposeWithAutoModel(app, '不用讨论，直接写第2章正文。');
     expect(JSON.parse(draftResponse.body)).toMatchObject({
       session: {
         currentStepId: 'write-chapter',
@@ -6050,6 +6389,160 @@ describe('createApp', () => {
     await app.close();
   });
 
+  it('enters current chapter finalization from pause when asked to apply review and generate final draft', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await completeDefine(app);
+    await completeIdeation(app);
+    await completeOutline(app);
+    await propose(app, '开始写第一章正文。');
+    await approve(app);
+    await propose(app, '请审查第一章草稿。');
+    await approve(app);
+
+    const response = await proposeFinalWithAutoModel(
+      app,
+      '按第001章审查报告做局部修补，生成 4-正文/第001章_定稿.md',
+      '4-正文/第001章_定稿.md',
+    );
+    const body = JSON.parse(response.body);
+    expect(body).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-finalize',
+        currentChapterNumber: 1,
+        waitingForApproval: true,
+        interactionMode: 'proposal',
+      },
+      pendingProposal: {
+        proposedWrites: [{ path: '4-正文/第001章_定稿.md' }],
+      },
+    });
+    expect(body.session.writeTargetHint.chatAllowedWrites).toEqual(
+      expect.arrayContaining(['4-正文/第001章_草稿.md', '4-正文/第001章_定稿.md']),
+    );
+
+    await approve(app);
+    await expect(readFile(path.join(workspaceRoot, '4-正文', '第001章_定稿.md'), 'utf8')).resolves.toContain(
+      '# 第001章',
+    );
+
+    const continueResponse = await propose(app, '继续下一章');
+    expect(JSON.parse(continueResponse.body)).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-draft',
+        currentChapterNumber: 2,
+      },
+    });
+
+    await app.close();
+  });
+
+  it('enters current chapter finalization from draft revision mode after a review gate sends the chapter back', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await completeDefine(app);
+    await completeIdeation(app);
+    await completeOutline(app);
+    await propose(app, '开始写第一章正文。');
+    await approve(app);
+
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  reply: '已生成审查报告。',
+                  proposedWrites: [
+                    {
+                      path: '5-审查/第001章_审查报告.md',
+                      content: [
+                        '# 第001章 审查报告',
+                        '',
+                        '- 审查评级：REVISE',
+                        '',
+                        '## 结论',
+                        '- 先做局部修补，再生成定稿。',
+                        '',
+                        '## 局部改写任务',
+                        '- 删除解释性总结句。',
+                      ].join('\n'),
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      })),
+    );
+
+    await propose(app, '请审查第一章草稿。');
+    const approvedReviewResponse = await approve(app);
+    expect(JSON.parse(approvedReviewResponse.body)).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-draft',
+      },
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  reply: '已按审查意见生成第001章定稿。',
+                  proposedWrites: [
+                    {
+                      path: '4-正文/第001章_定稿.md',
+                      content: '# 第001章\n\n定稿正文。',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      })),
+    );
+
+    const response = await propose(app, '按第001章审查报告做局部修补，生成 4-正文/第001章_定稿.md');
+    const body = JSON.parse(response.body);
+    expect(body).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-finalize',
+        currentChapterNumber: 1,
+        waitingForApproval: true,
+        interactionMode: 'proposal',
+      },
+      pendingProposal: {
+        proposedWrites: [{ path: '4-正文/第001章_定稿.md' }],
+      },
+    });
+
+    await approve(app);
+    await expect(readFile(path.join(workspaceRoot, '4-正文', '第001章_定稿.md'), 'utf8')).resolves.toContain(
+      '定稿正文',
+    );
+
+    await app.close();
+  });
+
   it('rejects chapter draft proposals that drift outside the current chapter outline', async () => {
     const workspaceRoot = await makeWorkspace();
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
@@ -6073,7 +6566,7 @@ describe('createApp', () => {
                   proposedWrites: [
                     {
                       path: '4-正文/第001章_草稿.md',
-                      content: '# 第001章 黎明之火（大结局）\n\n矿洞在这一章迎来终局。',
+                      content: '# 第001章 待填写后续章标题（大结局）\n\n矿洞在这一章迎来终局。',
                     },
                   ],
                 }),
@@ -6124,8 +6617,8 @@ describe('createApp', () => {
                     {
                       path: '4-正文/第001章_草稿.md',
                       content:
-                        '# 第001章 夹缝求生\n\n'
-                        + '沈砚深吸一口气，沿着废巷把每一处血铁线索重新核对。'.repeat(190),
+                        '# 第001章 待填写开局章标题\n\n'
+                        + '角色甲深吸一口气，沿着场景甲把每一处线索甲线索重新核对。'.repeat(190),
                     },
                   ],
                 }),
@@ -6240,7 +6733,7 @@ describe('createApp', () => {
     await app.close();
   });
 
-  it('returns structured validation diagnostics when local write fallback lacks a chapter plan', async () => {
+  it('returns structured validation diagnostics when model-driven writing lacks a chapter plan', async () => {
     const workspaceRoot = await makeWorkspace();
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
@@ -6280,9 +6773,9 @@ describe('createApp', () => {
     await writeFile(
       path.join(workspaceRoot, '3-大纲', '第01卷_章纲.md'),
       [
-        '第1章：夹缝求生',
+        '第1章：待填写开局章标题',
         '',
-        '**章节梗概**：主角在危险环境里第一次显露“苟住才有机会翻盘”的核心策略。',
+        '**章节梗概**：主角在危险环境里第一次显露“保留阶段策略”的核心策略。',
         '',
         '**场景拆解**：',
         '- 场景1：危机降临',
@@ -6352,7 +6845,7 @@ describe('createApp', () => {
     await propose(app, '开始写第8章正文。');
     await approve(app);
 
-    const response = await propose(app, '当前漏了第7章，请回到第7章正文写作，只生成第7章。');
+    const response = await proposeWithAutoModel(app, '当前漏了第7章，请回到第7章正文写作，只生成第7章。');
 
     expect(JSON.parse(response.body)).toMatchObject({
       session: {
@@ -6427,7 +6920,7 @@ describe('createApp', () => {
 
   it('remembers regenerate corrections for the next proposal prompt', async () => {
     const workspaceRoot = await makeWorkspace();
-    const app = createApp({ projectRoot: workspaceRoot, skillPackPath, disableLocalProposalFallback: true });
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
@@ -6454,7 +6947,7 @@ describe('createApp', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await propose(app, '生成一版创意脑暴草案');
-    await propose(app, '重写，主角必须叫沈砚，不能出现陆长安、天道酬勤面板、黑帮主线。');
+    await propose(app, '重写，主角必须叫角色甲，不能出现外部模板角色、外部模板能力、外部模板主线。');
     await approve(app);
     await propose(app, '继续生成下一步提案');
 
@@ -6462,8 +6955,8 @@ describe('createApp', () => {
       messages: Array<{ content: string }>;
     };
     expect(secondProposalRequest.messages[1].content).toContain('### 最近讨论记录');
-    expect(secondProposalRequest.messages[1].content).toContain('主角必须叫沈砚');
-    expect(secondProposalRequest.messages[1].content).toContain('不能出现陆长安');
+    expect(secondProposalRequest.messages[1].content).toContain('主角必须叫角色甲');
+    expect(secondProposalRequest.messages[1].content).toContain('不能出现外部模板角色');
 
     await app.close();
   });
@@ -6551,7 +7044,7 @@ describe('createApp', () => {
                     {
                       path: '4-正文/第001章_草稿.md',
                       content: [
-                        '# 第001章 夹缝求生',
+                        '# 第001章 待填写开局章标题',
                         '',
                         '夜色像刀一样压下来，仿佛整条街都在发抖。',
                         '这不是求生，而是命运对他的审判。',
@@ -6663,7 +7156,7 @@ describe('createApp', () => {
     await writeFile(
       path.join(workspaceRoot, '4-正文', '第001章_草稿.md'),
       [
-        '# 第001章 夹缝求生',
+        '# 第001章 待填写开局章标题',
         '',
         '夜色像刀一样压下来，仿佛整条街都在发抖。',
         '这不是求生，而是命运对他的审判。',
@@ -6755,7 +7248,7 @@ describe('createApp', () => {
     await propose(app, '请审查第一章草稿。');
     await approve(app);
     await propose(app, '继续下一章');
-    await propose(app, '开始写第二章正文。');
+    await proposeWithAutoModel(app, '开始写第二章正文。');
     await approve(app);
     await propose(app, '请审查第二章草稿。');
     await approve(app);
@@ -6817,7 +7310,7 @@ describe('createApp', () => {
 
     await writeFile(
       path.join(workspaceRoot, '4-正文', '第001章_草稿.md'),
-      '# 第001章 夹缝求生\n\n草稿已被用户修改。',
+      '# 第001章 待填写开局章标题\n\n草稿已被用户修改。',
       'utf8',
     );
 
