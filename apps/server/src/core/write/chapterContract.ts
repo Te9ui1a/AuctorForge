@@ -24,7 +24,7 @@ export type ChapterDraftValidationCode =
 
 const EARLY_FINALE_PATTERN = /(大结局|终章|完结章|最终章|全书完|故事完结)/u;
 export const TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS = 3200;
-export const MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 3000;
+export const MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 2800;
 
 export function parseOutlineChapters(chapterOutline: string): OutlineChapter[] {
   return chapterOutline

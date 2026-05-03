@@ -127,7 +127,9 @@ function hasFalseShortLengthClaim(content: string, narrativeChars: number) {
     return false;
   }
 
-  return /(字数.{0,12}(不足|严重不足)|仅\s*[12]\d{3}\s*字|约\s*[12]\d{3}\s*字|低于\s*3000\s*字)/u.test(content);
+  return content
+    .split('\n')
+    .some((line) => FALSE_SHORT_LENGTH_PATTERNS.some((pattern) => pattern.test(line)));
 }
 
 function correctFalseLengthEstimates(content: string, narrativeChars: number) {
@@ -136,10 +138,83 @@ function correctFalseLengthEstimates(content: string, narrativeChars: number) {
   }
 
   return content
-    .replace(/(?:当前草稿|当前正文)?约\s*[12]\d{3}\s*字/gu, `当前正文约 ${narrativeChars} 字`)
-    .replace(/仅\s*[12]\d{3}\s*字(?:左右)?/gu, `当前正文约 ${narrativeChars} 字`)
-    .replace(/距离单章\s*(?:3000\s*字左右|3000\s*-\s*3500\s*字)的标准相差甚远[。.]?/gu, '已达到单章至少3000字的长度要求。');
+    .split('\n')
+    .map((line) => correctFalseLengthLine(line, narrativeChars))
+    .join('\n');
 }
+
+function correctFalseLengthLine(line: string, narrativeChars: number) {
+  if (!FALSE_SHORT_LENGTH_PATTERNS.some((pattern) => pattern.test(line))) {
+    return line;
+  }
+
+  if (looksLikeLengthBullet(line) || containsLengthRewriteAdvice(line)) {
+    return buildLengthVerificationLine(narrativeChars);
+  }
+
+  let corrected = line
+    .replace(
+      /(?:当前草稿字数|当前正文字数|当前字数|当前草稿|当前正文)?\s*当前正文约\s*[12]\d{3}\s*字(?:左右)?/gu,
+      `当前正文约 ${narrativeChars} 字`,
+    )
+    .replace(
+      /(?:当前草稿字数|当前正文字数|当前字数|当前草稿|当前正文)?\s*约(?:为|在)?\s*[12]\d{3}\s*字(?:左右)?/gu,
+      `当前正文约 ${narrativeChars} 字`,
+    )
+    .replace(/仅\s*[12]\d{3}\s*字(?:左右)?/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(
+      /(?:未达到|未达标|不达标|(?<!不)低于)\s*(?:不低于\s*)?(?:2800|3000)\s*字(?:的(?:最低|硬性)?要求)?(?:[。.]|，|,)?/gu,
+      `已达到单章至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字的长度要求。`,
+    )
+    .replace(
+      /距离\s*(?:2800|3000)\s*字(?:的)?(?:最低要求|标准)\s*(?:略有不足|相差甚远)(?:[。.]|，|,)?/gu,
+      `已达到单章至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字的长度要求。`,
+    )
+    .replace(
+      /(?:\*\*)?字数(?:不足|严重不足|未达标|不达标)(?:\*\*)?\s*(?:，|,|和|、)\s*/gu,
+      '',
+    )
+    .replace(
+      /(?:\*\*)?字数(?:不足|严重不足|未达标|不达标)(?:\*\*)?/gu,
+      '字数已达标',
+    )
+    .replace(/略有不足/gu, `已达到单章至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字的长度要求`)
+    .replace(/当前草稿字数当前正文约\s*([12]\d{3})\s*字/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前字数当前正文约\s*([12]\d{3})\s*字/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前正文字数当前正文约\s*([12]\d{3})\s*字/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前草稿字数约在\s*[12]\d{3}\s*字左右/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前草稿字数约为\s*[12]\d{3}\s*字/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前字数约在\s*[12]\d{3}\s*字左右/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前字数约为\s*[12]\d{3}\s*字/gu, `当前正文约 ${narrativeChars} 字`)
+    .replace(/当前正文约\s*[12]\d{3}\s*字/gu, `当前正文约 ${narrativeChars} 字`);
+
+  if (/^\s*[-*]\s*(?:\*\*)?字数[^：:\n]{0,12}[：:]\s*$/u.test(corrected.trim())) {
+    return buildLengthVerificationLine(narrativeChars);
+  }
+
+  return corrected;
+}
+
+function looksLikeLengthBullet(line: string) {
+  return /^\s*[-*]\s*(?:\*\*)?字数[^：:\n]{0,12}[：:]/u.test(line);
+}
+
+function containsLengthRewriteAdvice(line: string) {
+  return /(需要通过|建议|扩充|增加|补充|请|应当|应在|需在).{0,40}(?:字数|2800|3000|篇幅|字量|字)/u.test(line);
+}
+
+function buildLengthVerificationLine(narrativeChars: number) {
+  return `- **字数核验**：服务端统计当前正文约 ${narrativeChars} 字，已达到单章至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字的长度要求。`;
+}
+
+const FALSE_SHORT_LENGTH_PATTERNS = [
+  /字数.{0,20}(?:不足|严重不足|未达标|不达标)/u,
+  /(?:未达到|(?<!不)低于)\s*(?:不低于\s*)?(?:2800|3000)\s*字/u,
+  /距离\s*(?:2800|3000)\s*字(?:的)?(?:最低要求|标准).{0,20}(?:略有不足|相差甚远)/u,
+  /仅\s*[12]\d{3}\s*字/u,
+  /约\s*[12]\d{3}\s*字/u,
+  /略有不足/u,
+] as const;
 
 function buildMissingReviewReport(chapterNumber: number, draftContent: string) {
   const label = chapterLabel(chapterNumber);

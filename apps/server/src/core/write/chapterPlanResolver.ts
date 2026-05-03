@@ -16,7 +16,7 @@ export type ChapterPlanResolution =
       ok: true;
       sourcePath: string;
       chapter: ChapterPlan;
-      chapters: Array<{ number: number; title: string }>;
+      chapters: ChapterPlan[];
     }
   | {
       ok: false;

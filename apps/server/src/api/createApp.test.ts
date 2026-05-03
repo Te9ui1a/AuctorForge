@@ -6158,6 +6158,45 @@ describe('createApp', () => {
     await app.close();
   });
 
+  it('reviews the explicitly requested existing chapter instead of the current workflow chapter', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await completeDefine(app);
+    await completeIdeation(app);
+    await completeOutline(app);
+    await propose(app, '开始写第一章正文。');
+    await approve(app);
+    await propose(app, '继续下一章');
+    await proposeWithAutoModel(app, '开始写第2章正文。');
+    await approve(app);
+
+    const progressBeforeReview = await app.inject({ method: 'GET', url: '/api/progress' });
+    expect(JSON.parse(progressBeforeReview.body)).toMatchObject({
+      session: {
+        currentStepId: 'review-chapter',
+        currentSubstepId: 'chapter-review',
+        currentChapterNumber: 2,
+      },
+    });
+
+    const response = await propose(app, '请审查第1章草稿。');
+
+    expect(JSON.parse(response.body)).toMatchObject({
+      session: {
+        currentStepId: 'review-chapter',
+        currentSubstepId: 'chapter-review',
+        currentChapterNumber: 1,
+      },
+      pendingProposal: {
+        proposedWrites: [{ path: '5-审查/第001章_审查报告.md' }],
+      },
+    });
+
+    await app.close();
+  });
+
   it('requires an explicit command to continue into the next chapter after review', async () => {
     const workspaceRoot = await makeWorkspace();
     const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
@@ -6198,7 +6237,7 @@ describe('createApp', () => {
     await propose(app, '请审查第一章草稿。');
     await approve(app);
 
-    const continueResponse = await propose(app, '继续，开始写第2章正文。必须一章一章写，只写第2章；正文必须至少3000字。');
+    const continueResponse = await propose(app, '继续，开始写第2章正文。必须一章一章写，只写第2章；正文必须至少2800字。');
 
     expect(JSON.parse(continueResponse.body)).toMatchObject({
       session: {
@@ -6538,6 +6577,82 @@ describe('createApp', () => {
     await approve(app);
     await expect(readFile(path.join(workspaceRoot, '4-正文', '第001章_定稿.md'), 'utf8')).resolves.toContain(
       '定稿正文',
+    );
+
+    await app.close();
+  });
+
+  it('routes explicit finalization requests from chapter review state to final draft generation', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await completeDefine(app);
+    await completeIdeation(app);
+    await completeOutline(app);
+    await propose(app, '开始写第一章正文。');
+    await approve(app);
+    await writeFile(
+      path.join(workspaceRoot, '5-审查', '第001章_审查报告.md'),
+      [
+        '# 第001章 审查报告',
+        '',
+        '- 审查评级：REVISE',
+        '',
+        '## 局部改写任务',
+        '- 删除解释性总结句。',
+      ].join('\n'),
+      'utf8',
+    );
+
+    await propose(app, '请审查第一章草稿。');
+
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  reply: '已按审查报告和修订稿生成第001章定稿。',
+                  proposedWrites: [
+                    {
+                      path: '4-正文/第001章_定稿.md',
+                      content: '# 第001章\n\n定稿正文。',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      })),
+    );
+
+    const response = await propose(
+      app,
+      '按第001章审查报告和刚才修订后的草稿生成第001章最终定稿，写入 4-正文/第001章_定稿.md，先给我待确认提案。',
+    );
+    const body = JSON.parse(response.body);
+
+    expect(body).toMatchObject({
+      session: {
+        currentStepId: 'write-chapter',
+        currentSubstepId: 'chapter-finalize',
+        currentModule: 'write',
+        currentChapterNumber: 1,
+        waitingForApproval: true,
+        interactionMode: 'proposal',
+      },
+      pendingProposal: {
+        proposedWrites: [{ path: '4-正文/第001章_定稿.md' }],
+      },
+    });
+    expect(body.pendingProposal.proposedWrites).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: '5-审查/第001章_审查报告.md' })]),
     );
 
     await app.close();
@@ -7015,7 +7130,7 @@ describe('createApp', () => {
       },
       pendingProposal: null,
     });
-    expect(JSON.parse(response.body).reply).toContain('至少3000字');
+    expect(JSON.parse(response.body).reply).toContain('至少2800字');
 
     await app.close();
   });
@@ -7072,7 +7187,7 @@ describe('createApp', () => {
       },
       pendingProposal: null,
     });
-    expect(JSON.parse(response.body).reply).toContain('至少3000字');
+    expect(JSON.parse(response.body).reply).toContain('至少2800字');
 
     await app.close();
   });

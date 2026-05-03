@@ -154,7 +154,7 @@ describe('chapterContract', () => {
     });
   });
 
-  it('rejects chapter drafts below the 3000-character minimum', () => {
+  it('rejects chapter drafts below the 2800-character minimum', () => {
     const validation = validateChapterDraftProposal({
       currentChapterNumber: 1,
       projectFiles: [
@@ -166,7 +166,7 @@ describe('chapterContract', () => {
       proposedWrites: [
         {
           path: '4-正文/第001章_草稿.md',
-          content: '# 第001章 待填写开局章标题\n\n' + '这一章仍然只有摘要式正文。'.repeat(80),
+          content: '# 第001章 待填写开局章标题\n\n' + '甲'.repeat(2799),
         },
       ],
     });
@@ -174,8 +174,28 @@ describe('chapterContract', () => {
     expect(validation).toMatchObject({
       ok: false,
       code: 'chapter-draft-too-short',
-      message: expect.stringContaining('至少3000字'),
+      message: expect.stringContaining('至少2800字'),
     });
+  });
+
+  it('accepts chapter drafts at the 2800-character minimum', () => {
+    const validation = validateChapterDraftProposal({
+      currentChapterNumber: 1,
+      projectFiles: [
+        {
+          path: '3-大纲/第01卷_章纲.md',
+          content: ['第1章：待填写开局章标题', '', '第2章：待填写承接章标题'].join('\n'),
+        },
+      ],
+      proposedWrites: [
+        {
+          path: '4-正文/第001章_草稿.md',
+          content: '# 第001章 待填写开局章标题\n\n' + '甲'.repeat(2800),
+        },
+      ],
+    });
+
+    expect(validation).toEqual({ ok: true });
   });
 
   it('accepts chapter drafts above the former target band', () => {

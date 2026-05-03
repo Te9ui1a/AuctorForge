@@ -1323,11 +1323,11 @@ export function createApp({
     routeReply,
   }: ChatTurnContext) {
     const current = getCurrentStep();
-    if (
-      current.module !== 'write'
-      || !['chapter-draft', 'chapter-pause'].includes(current.substepId)
-      || !isChapterFinalizationIntent(message)
-    ) {
+    const canFinalizeFromCurrentStep =
+      (current.module === 'write' && ['chapter-draft', 'chapter-pause'].includes(current.substepId))
+      || (current.module === 'review' && current.substepId === 'chapter-review');
+
+    if (!canFinalizeFromCurrentStep || !isChapterFinalizationIntent(message)) {
       return null;
     }
 
@@ -1766,14 +1766,17 @@ export function createApp({
   ) {
     const current = getCurrentStep();
     const reviewSubstepId = resolveReviewSubstepId(message, current.module);
+    const requestedChapterNumber = extractRequestedChapterNumber(message);
 
     if (!reviewSubstepId) {
       return null;
     }
 
+    const reviewChapterNumber = requestedChapterNumber ?? getRuntimeState().workflowState.chapterNumber;
     const reviewState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'review-chapter', {
       mode: 'standard',
       substepId: reviewSubstepId,
+      chapterNumber: reviewChapterNumber,
       returnTarget:
         current.module === 'review'
           ? getRuntimeState().workflowState.returnTarget

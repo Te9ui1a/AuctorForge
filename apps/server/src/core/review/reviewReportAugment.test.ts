@@ -191,7 +191,7 @@ describe('reviewReportAugment', () => {
             '- 审查评级：REVISE',
             '',
             '## 基础数据',
-            '- 字数评估：当前草稿约 1600 字，距离单章 3000-3500 字的标准相差甚远。',
+            '- 字数评估：当前草稿约 1600 字，距离单章 2800-3500 字的标准相差甚远。',
           ].join('\n'),
         },
       ],
@@ -203,6 +203,7 @@ describe('reviewReportAugment', () => {
     expect(report).toContain('审查评级：PASS');
     expect(report).toContain('## 字数核验（服务端补充）');
     expect(report).toContain('当前正文约');
+    expect(report).toContain('最低要求为 2800 字');
     expect(report).toContain('模型原字数估算与实际正文长度不一致');
     expect(report).not.toContain('约 1600 字');
   });

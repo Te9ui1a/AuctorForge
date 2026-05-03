@@ -4,7 +4,7 @@ Chapter draft validation currently enforces both a lower and upper narrative cha
 
 ## Goals
 
-- Require chapter drafts to contain at least 3000 narrative characters.
+- Require chapter drafts to contain at least 2800 narrative characters.
 - Allow longer drafts to proceed to later validation checks.
 - Keep heading, title, AI-flavor, early-finale, and project-context validation unchanged.
 
@@ -16,7 +16,7 @@ Chapter draft validation currently enforces both a lower and upper narrative cha
 
 ## Decisions
 
-- Preserve `MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 3000` as the authoritative hard threshold.
+- Preserve `MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 2800` as the authoritative hard threshold.
 - Keep `TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS` for prompt/metadata compatibility if other code imports it.
 - Remove the validator branch that rejects drafts above the former maximum.
 - Update below-minimum error text to avoid advertising a maximum band.

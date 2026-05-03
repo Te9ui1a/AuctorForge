@@ -4,10 +4,10 @@ The WebUI chapter-writing test showed that model drafts can satisfy the user's m
 
 ## What Changes
 
-- Change chapter draft length validation from a 3000-3500 character band to a minimum-only rule.
-- Keep rejecting chapter drafts below 3000 narrative characters.
+- Change chapter draft length validation from a 2800-3500 character band to a minimum-only rule.
+- Keep rejecting chapter drafts below 2800 narrative characters.
 - Stop rejecting otherwise valid chapter drafts solely because they exceed 3500 narrative characters.
-- Update user-facing validation copy so retry guidance says the draft must be at least 3000 characters.
+- Update user-facing validation copy so retry guidance says the draft must be at least 2800 characters.
 
 ## Capabilities
 

@@ -59,10 +59,10 @@ The system SHALL validate chapter draft proposals before exposing them as pendin
 - **THEN** the system SHALL reject the proposal
 - **AND** no pending proposal SHALL be created.
 
-#### Scenario: Proposed draft exceeds target length
+#### Scenario: Proposed draft is shorter than minimum length
 
-- **GIVEN** the target narrative length band is 3000 to 3500 characters
-- **WHEN** the proposed chapter draft has narrative length greater than 3500 characters
+- **GIVEN** the minimum narrative length is 2800 characters
+- **WHEN** the proposed chapter draft has narrative length lower than 2800 characters
 - **THEN** the system SHALL reject the proposal before approval.
 
 #### Scenario: Proposed draft contains blocking AI-flavor issues
