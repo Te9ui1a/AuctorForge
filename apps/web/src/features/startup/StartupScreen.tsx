@@ -551,6 +551,7 @@ export function StartupScreen({
                 selectedProjectId={selectedProjectId || undefined}
                 managementMode
                 variant="management"
+                onContinueProject={(project) => void onStart('create', project.id)}
                 onRepairProject={handleRepairProject}
                 onToggleArchiveProject={handleToggleArchiveProject}
                 onRemoveProject={handleRemoveProject}

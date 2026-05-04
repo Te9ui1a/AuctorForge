@@ -537,7 +537,7 @@ describe('StartupScreen', () => {
     });
   });
 
-  it('toggles project management and allows archive/remove actions on the selected project', async () => {
+  it('opens project status as a dialog from project management and can enter the selected project', async () => {
     vi.mocked(projectApi.repairProject).mockResolvedValue({
       id: 'proj-1',
       name: 'Test Project 1',
@@ -568,38 +568,42 @@ describe('StartupScreen', () => {
     expect(screen.getByRole('heading', { name: '项目管理' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Test Project 1'));
-    const repairButton = await screen.findByRole('button', { name: '修复项目' });
-    expect(screen.getAllByText('Test Project 1').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByRole('button', { name: '归档项目' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '从列表移除' })).toBeInTheDocument();
+    const statusDialog = await screen.findByRole('dialog', { name: 'Test Project 1' });
+    expect(statusDialog).toHaveAttribute('aria-modal', 'true');
+    expect(within(statusDialog).getByText('活跃')).toBeInTheDocument();
+    const enterProjectButton = within(statusDialog).getByRole('button', { name: '进入项目' });
+    const repairButton = within(statusDialog).getByRole('button', { name: '修复项目' });
+    expect(within(statusDialog).getByRole('button', { name: '归档项目' })).toBeInTheDocument();
+    expect(within(statusDialog).getByRole('button', { name: '从列表移除' })).toBeInTheDocument();
+    fireEvent.click(enterProjectButton);
+    expect(mockOnStart).toHaveBeenCalledWith('create', 'proj-1');
     expectLucideStartupIcon(repairButton, 'repair');
-    expectLucideStartupIcon(screen.getByRole('button', { name: '归档项目' }), 'archive');
-    expectLucideStartupIcon(screen.getByRole('button', { name: '从列表移除' }), 'remove');
-    expect(screen.getByRole('button', { name: /Test Project 1/ })).toHaveTextContent('Test Project 1');
+    expectLucideStartupIcon(within(statusDialog).getByRole('button', { name: '归档项目' }), 'archive');
+    expectLucideStartupIcon(within(statusDialog).getByRole('button', { name: '从列表移除' }), 'remove');
     fireEvent.click(repairButton);
 
     await waitFor(() => {
       expect(projectApi.repairProject).toHaveBeenCalledWith('proj-1');
     });
 
-    fireEvent.click(screen.getByText('归档项目'));
+    fireEvent.click(within(statusDialog).getByText('归档项目'));
 
     await waitFor(() => {
       expect(projectApi.archiveProject).toHaveBeenCalledWith('proj-1', true);
     });
 
-    fireEvent.click(screen.getByText('取消归档'));
+    fireEvent.click(within(statusDialog).getByText('取消归档'));
 
     await waitFor(() => {
       expect(projectApi.archiveProject).toHaveBeenCalledWith('proj-1', false);
     });
 
-    fireEvent.click(screen.getByText('从列表移除'));
+    fireEvent.click(within(statusDialog).getByText('从列表移除'));
 
     expect(projectApi.removeProject).not.toHaveBeenCalled();
-    expect(screen.getByText('确认要将“Test Project 1”从列表移除吗？项目文件不会被删除。')).toBeInTheDocument();
+    expect(within(statusDialog).getByText('确认要将“Test Project 1”从列表移除吗？项目文件不会被删除。')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '确认移除' }));
+    fireEvent.click(within(statusDialog).getByRole('button', { name: '确认移除' }));
 
     await waitFor(() => {
       expect(projectApi.removeProject).toHaveBeenCalledWith('proj-1');

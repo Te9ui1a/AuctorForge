@@ -1,6 +1,6 @@
-import { Archive, BookOpen, PanelsTopLeft, Sparkles, Trash2, Upload, Wrench } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, PanelsTopLeft, Sparkles, Trash2, Upload, Wrench } from 'lucide-react';
 
-type StartupGlyphName = 'spark' | 'upload' | 'sample' | 'panels' | 'repair' | 'archive' | 'remove';
+type StartupGlyphName = 'spark' | 'upload' | 'sample' | 'panels' | 'repair' | 'archive' | 'remove' | 'enter';
 
 type StartupGlyphProps = {
   name: StartupGlyphName;
@@ -20,7 +20,9 @@ export function StartupGlyph({ name }: StartupGlyphProps) {
                 ? Wrench
                 : name === 'archive'
                   ? Archive
-                  : Trash2;
+                  : name === 'enter'
+                    ? ArrowRight
+                    : Trash2;
 
   return (
     <span className="startup-action-icon" data-startup-icon={name} data-icon-system="lucide" aria-hidden="true">

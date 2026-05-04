@@ -49,6 +49,8 @@ describe('ProjectManagerPanel', () => {
     );
 
     expect(screen.getByRole('heading', { name: '项目管理' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /星港回声/ }));
+    expect(screen.getByRole('dialog', { name: '星港回声' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '修复项目' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '归档项目' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '从列表移除' })).toBeInTheDocument();
@@ -83,6 +85,7 @@ describe('ProjectManagerPanel', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /星港回声/ }));
     const repairButton = screen.getByRole('button', { name: '修复项目' });
     const archiveButton = screen.getByRole('button', { name: '归档项目' });
     const removeButton = screen.getByRole('button', { name: '从列表移除' });
@@ -112,6 +115,7 @@ describe('ProjectManagerPanel', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /星港回声/ }));
     fireEvent.click(screen.getByRole('button', { name: '从列表移除' }));
 
     expect(onRemoveProject).not.toHaveBeenCalled();

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '../../lib/utils';
 import { ProjectInfo } from './projectTypes';
 import { getProjectStatusLabel, ProjectCard } from './ProjectCard';
@@ -42,12 +43,20 @@ export function ProjectManagerPanel({
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
   const selectedProjectStatusLabel = selectedProject ? getProjectStatusLabel(selectedProject.status) : null;
   const isRecentVariant = resolvedVariant === 'recent';
+  const [statusDialogProjectId, setStatusDialogProjectId] = useState<string | null>(null);
+  const isStatusDialogOpen = Boolean(selectedProject && statusDialogProjectId === selectedProject.id);
   const [pendingRemovalProjectId, setPendingRemovalProjectId] = useState<string | null>(null);
   const isRemovalPending = Boolean(selectedProject && pendingRemovalProjectId === selectedProject.id);
 
   useEffect(() => {
     setPendingRemovalProjectId(null);
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setStatusDialogProjectId(null);
+    }
+  }, [selectedProject]);
 
   return (
     <div
@@ -85,7 +94,12 @@ export function ProjectManagerPanel({
             <ProjectCard
               key={project.id}
               project={project}
-              onClick={() => onSelectProject(project)}
+              onClick={() => {
+                onSelectProject(project);
+                if (isManagementVariant) {
+                  setStatusDialogProjectId(project.id);
+                }
+              }}
               onContinue={isRecentVariant ? () => onContinueProject?.(project) : undefined}
               isSelected={project.id === selectedProjectId}
               variant={resolvedVariant}
@@ -95,22 +109,32 @@ export function ProjectManagerPanel({
       </div>
 
       {isManagementVariant && selectedProject ? (
-        <div
-          data-entry-surface="management-detail-card"
-          data-management-tone="quiet-editorial"
-          className="startup-management-detail rounded-[var(--radius-md)] border border-border/35 bg-background/35 p-5 shadow-none"
+        <Dialog
+          open={isStatusDialogOpen}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setStatusDialogProjectId(null);
+              setPendingRemovalProjectId(null);
+            }
+          }}
         >
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="grid gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <strong className="text-lg font-semibold text-foreground">{selectedProject.name}</strong>
-                {selectedProjectStatusLabel ? (
-                  <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                    {selectedProjectStatusLabel}
-                  </Badge>
-                ) : null}
+          <DialogContent
+            aria-modal="true"
+            className="startup-project-status-dialog max-h-[min(720px,calc(100vh-2rem))] w-[min(100%-2rem,42rem)] overflow-auto"
+            data-entry-surface="project-status-dialog"
+          >
+            <DialogHeader>
+              <div className="flex flex-wrap items-center gap-3 pr-8">
+                <DialogTitle>{selectedProject.name}</DialogTitle>
+                <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                  {selectedProjectStatusLabel}
+                </Badge>
               </div>
-              <div className="grid gap-1.5 text-sm text-muted-foreground">
+              <DialogDescription>查看项目状态，进入项目，或执行维护操作。</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-5">
+              <div className="grid gap-3 text-sm text-muted-foreground">
                 {selectedProject.rootPath ? (
                   <div className="inline-flex items-start gap-2 rounded-[var(--radius-md)] border border-border/25 bg-background/20 px-3 py-2 text-xs">
                     <FolderTree className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -120,10 +144,16 @@ export function ProjectManagerPanel({
                 {selectedProject.phase ? <span>阶段：{selectedProject.phase}</span> : null}
                 {selectedProject.coreTask ? <span>任务：{selectedProject.coreTask}</span> : null}
               </div>
-            </div>
 
-            <div className="flex flex-col gap-3 lg:items-end">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Button
+                  data-management-action="enter"
+                  className="justify-start rounded-[var(--radius-md)] px-4 shadow-none"
+                  onClick={() => onContinueProject?.(selectedProject)}
+                >
+                  <StartupGlyph name="enter" />
+                  进入项目
+                </Button>
                 <Button
                   variant="secondary"
                   data-management-action="repair"
@@ -180,8 +210,8 @@ export function ProjectManagerPanel({
                 </div>
               ) : null}
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );
