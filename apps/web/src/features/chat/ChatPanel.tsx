@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import type { ChatTurnStrategy } from './chatTurnStrategy';
+import type { ChatGenerationProgress, ChatGenerationProgressPhase } from './useChatStream';
 import type { PendingProposal } from '../workflow/types';
 import type { ChatAttachment, ChatMessage, WriteTargetHint } from '../workflow/types';
 
@@ -48,6 +49,36 @@ function canReuseAssistantContinuation(slot: MessageKeySlot, message: ChatMessag
   return slot.content.startsWith(message.content) || message.content.startsWith(slot.content);
 }
 
+const CHAT_PROGRESS_LONG_WAIT_MS = 90_000;
+const CHAT_PROGRESS_PHASE_LABELS: Record<ChatGenerationProgressPhase, string> = {
+  preparing: '准备生成环境',
+  building_prompt: '整理上下文与提示',
+  calling_model: '调用模型生成正文',
+  validating: '检查草稿与写入提案',
+  snapshotting: '整理待确认提案',
+};
+
+function formatProgressDuration(durationMs: number) {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatProgressFreshness(ageMs: number | null) {
+  if (ageMs === null) {
+    return '等待服务端响应';
+  }
+
+  const seconds = Math.max(0, Math.round(ageMs / 1000));
+  if (ageMs <= 15_000) {
+    return `连接正常，上次响应 ${seconds} 秒前`;
+  }
+
+  return `等待服务端响应 ${seconds} 秒`;
+}
+
 type ChatPanelProps = {
   messages: ChatMessage[];
   chatInput: string;
@@ -59,6 +90,7 @@ type ChatPanelProps = {
   onPickFiles: (fileList: FileList | null) => void;
   onRemoveAttachment: (name: string) => void;
   turnStrategy?: ChatTurnStrategy | null;
+  generationProgress?: ChatGenerationProgress;
   onContinueDiscussion?: () => void;
   chatError?: string;
   writeTargetHint?: WriteTargetHint;
@@ -78,6 +110,7 @@ export function ChatPanel({
   onPickFiles,
   onRemoveAttachment,
   turnStrategy,
+  generationProgress,
   onContinueDiscussion,
   chatError,
   writeTargetHint,
@@ -131,6 +164,15 @@ export function ChatPanel({
     : activeWritingPath
       ? 'document-attached'
       : 'general';
+  const visibleGenerationProgress = generationProgress && generationProgress.status !== 'idle'
+    ? generationProgress
+    : null;
+  const generationProgressPhaseLabel = visibleGenerationProgress?.phase
+    ? CHAT_PROGRESS_PHASE_LABELS[visibleGenerationProgress.phase]
+    : '准备生成环境';
+  const generationProgressTitle = visibleGenerationProgress?.status === 'error'
+    ? '生成失败'
+    : `正在生成 · ${formatProgressDuration(visibleGenerationProgress?.elapsedMs ?? 0)}`;
 
   let writeHintText = '';
   if (turnStrategy?.showsWriteTargetHint && writeTargetHint) {
@@ -300,6 +342,32 @@ export function ChatPanel({
               >
                 <span>正在输出回复</span>
                 <span aria-hidden="true" data-chat-motion-line />
+              </div>
+            ) : null}
+            {visibleGenerationProgress ? (
+              <div
+                className="chat-generation-progress rounded-[var(--radius-md)] border border-[color:var(--ui-assistant-thinking-border)] bg-[color:var(--ui-assistant-thinking-surface)] px-3 py-3 text-sm text-[color:var(--ui-assistant-foreground)]"
+                data-chat-surface="generation-progress"
+                data-chat-progress-state={visibleGenerationProgress.status}
+                role="status"
+                aria-label={visibleGenerationProgress.status === 'error' ? '生成失败' : '生成进度'}
+              >
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <span className="truncate font-medium">{generationProgressTitle}</span>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary/70" aria-hidden="true" />
+                </div>
+                <div className="mt-2 space-y-1 text-xs leading-5 text-[color:var(--ui-assistant-muted)]">
+                  <div>阶段：{generationProgressPhaseLabel}</div>
+                  {visibleGenerationProgress.status === 'active' ? (
+                    <div>{formatProgressFreshness(visibleGenerationProgress.lastEventAgeMs)}</div>
+                  ) : null}
+                  {visibleGenerationProgress.status === 'active' && visibleGenerationProgress.elapsedMs >= CHAT_PROGRESS_LONG_WAIT_MS ? (
+                    <div>长章节通常需要 2-5 分钟，请保持页面打开</div>
+                  ) : null}
+                  {visibleGenerationProgress.status === 'error' && visibleGenerationProgress.errorMessage ? (
+                    <div className="text-destructive-foreground">{visibleGenerationProgress.errorMessage}</div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>

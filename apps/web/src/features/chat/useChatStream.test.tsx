@@ -133,6 +133,29 @@ describe('useChatStream', () => {
     });
   });
 
+  it('marks progress failed when stream fallback cannot recover', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('stream disconnected'))
+      .mockRejectedValueOnce(new Error('fallback disconnected'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useChatStream({
+      onAssistantStart: () => {},
+      onAssistantChunk: () => {},
+      streamEnabled: true,
+    }));
+
+    await act(async () => {
+      await expect(result.current.send('继续', false, [])).rejects.toThrow('fallback disconnected');
+    });
+
+    expect(result.current.progress).toMatchObject({
+      status: 'error',
+      errorMessage: 'fallback disconnected',
+    });
+  });
+
   it('ignores stream ready events and resolves completed-turn done events', async () => {
     const onAssistantStart = vi.fn();
     const onAssistantChunk = vi.fn();
@@ -157,6 +180,39 @@ describe('useChatStream', () => {
     expect(onAssistantStart).toHaveBeenCalledTimes(1);
     expect(onAssistantChunk).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks phase and heartbeat progress without treating them as assistant chunks', async () => {
+    const onAssistantStart = vi.fn();
+    const onAssistantChunk = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(createStreamResponse([
+      'event: ready\ndata: {"transport":"completed-turn-sse"}\n\n',
+      'event: phase\ndata: {"phase":"building_prompt","requestId":"turn-progress"}\n\n',
+      'event: heartbeat\ndata: {"phase":"building_prompt","requestId":"turn-progress"}\n\n',
+      'event: phase\ndata: {"phase":"calling_model","requestId":"turn-progress"}\n\n',
+      'event: done\ndata: {"reply":"完成了。","session":{},"pendingProposal":null}\n\n',
+    ]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useChatStream({
+      onAssistantStart,
+      onAssistantChunk,
+      streamEnabled: true,
+    }));
+
+    await act(async () => {
+      await expect(result.current.send('继续', false, [])).resolves.toMatchObject({ reply: '完成了。' });
+    });
+
+    expect(onAssistantStart).toHaveBeenCalledTimes(1);
+    expect(onAssistantChunk).not.toHaveBeenCalled();
+    expect(result.current.progress).toMatchObject({
+      status: 'idle',
+      phase: 'calling_model',
+      requestId: 'turn-progress',
+      lastEventAgeMs: expect.any(Number),
+    });
+    expect(result.current.progress.elapsedMs).toBeGreaterThanOrEqual(0);
   });
 
   it('rejects stream error events with the structured backend message', async () => {

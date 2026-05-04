@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ChatAttachment, ChatErrorPayload, ChatMode, ChatRequest, ChatResponse } from '../workflow/types';
 import { buildProjectScopedHeaders, readApiError } from '../api/apiClient';
@@ -7,6 +7,33 @@ type StreamResult = ChatResponse;
 
 const STREAM_PARTIAL_ERROR = 'STREAM_PARTIAL_ERROR';
 export const DEFAULT_CHAT_REQUEST_TIMEOUT_MS = 310_000;
+const CHAT_PROGRESS_TICK_MS = 1_000;
+
+export type ChatGenerationProgressPhase =
+  | 'preparing'
+  | 'building_prompt'
+  | 'calling_model'
+  | 'validating'
+  | 'snapshotting';
+
+export type ChatGenerationProgressStatus = 'idle' | 'active' | 'error';
+
+export type ChatGenerationProgress = {
+  status: ChatGenerationProgressStatus;
+  phase: ChatGenerationProgressPhase | null;
+  requestId: string | null;
+  elapsedMs: number;
+  lastEventAgeMs: number | null;
+  errorMessage?: string;
+};
+
+const CHAT_GENERATION_PROGRESS_PHASES: ReadonlySet<string> = new Set([
+  'preparing',
+  'building_prompt',
+  'calling_model',
+  'validating',
+  'snapshotting',
+]);
 
 type UseChatStreamOptions = {
   activeProjectId?: string | null;
@@ -50,6 +77,44 @@ function buildRequestBody(message: string, approved: boolean, attachments: ChatA
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function createInitialChatGenerationProgress(): ChatGenerationProgress {
+  return {
+    status: 'idle',
+    phase: null,
+    requestId: null,
+    elapsedMs: 0,
+    lastEventAgeMs: null,
+  };
+}
+
+function isChatGenerationProgressPhase(value: unknown): value is ChatGenerationProgressPhase {
+  return typeof value === 'string' && CHAT_GENERATION_PROGRESS_PHASES.has(value);
+}
+
+function readProgressEvent(data: string) {
+  try {
+    const payload = JSON.parse(data) as unknown;
+    if (!isRecord(payload)) {
+      return null;
+    }
+
+    return {
+      phase: isChatGenerationProgressPhase(payload.phase) ? payload.phase : undefined,
+      requestId: typeof payload.requestId === 'string' ? payload.requestId : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readElapsedMs(startedAt: number | null, now = Date.now()) {
+  return startedAt === null ? 0 : Math.max(0, now - startedAt);
+}
+
+function readLastEventAgeMs(lastEventAt: number | null, now = Date.now()) {
+  return lastEventAt === null ? null : Math.max(0, now - lastEventAt);
 }
 
 function readStreamError(data: string) {
@@ -114,21 +179,91 @@ async function withRequestTimeout<T>(
 
 export function useChatStream({ activeProjectId, onAssistantStart, onAssistantChunk, requestTimeoutMs = DEFAULT_CHAT_REQUEST_TIMEOUT_MS, streamEnabled }: UseChatStreamOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
+  const [progress, setProgress] = useState<ChatGenerationProgress>(() => createInitialChatGenerationProgress());
+  const progressStartedAtRef = useRef<number | null>(null);
+  const progressLastEventAtRef = useRef<number | null>(null);
+
+  const refreshProgressTiming = useCallback(() => {
+    const now = Date.now();
+    setProgress((current) => ({
+      ...current,
+      elapsedMs: readElapsedMs(progressStartedAtRef.current, now),
+      lastEventAgeMs: readLastEventAgeMs(progressLastEventAtRef.current, now),
+    }));
+  }, []);
+
+  const startProgress = useCallback((requestId: string) => {
+    const now = Date.now();
+    progressStartedAtRef.current = now;
+    progressLastEventAtRef.current = null;
+    setProgress({
+      status: 'active',
+      phase: 'preparing',
+      requestId,
+      elapsedMs: 0,
+      lastEventAgeMs: null,
+    });
+  }, []);
+
+  const markProgressEvent = useCallback((eventProgress: ReturnType<typeof readProgressEvent>) => {
+    if (eventProgress === null) {
+      return;
+    }
+
+    const now = Date.now();
+    progressLastEventAtRef.current = now;
+    setProgress((current) => ({
+      ...current,
+      status: current.status === 'error' ? current.status : 'active',
+      phase: eventProgress.phase ?? current.phase,
+      requestId: eventProgress.requestId ?? current.requestId,
+      elapsedMs: readElapsedMs(progressStartedAtRef.current, now),
+      lastEventAgeMs: 0,
+    }));
+  }, []);
+
+  const finishProgress = useCallback((status: ChatGenerationProgressStatus, errorMessage?: string) => {
+    const now = Date.now();
+    setProgress((current) => ({
+      ...current,
+      status,
+      elapsedMs: readElapsedMs(progressStartedAtRef.current, now),
+      lastEventAgeMs: readLastEventAgeMs(progressLastEventAtRef.current, now),
+      ...(errorMessage ? { errorMessage } : { errorMessage: undefined }),
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (progress.status !== 'active') {
+      return undefined;
+    }
+
+    const interval = window.setInterval(refreshProgressTiming, CHAT_PROGRESS_TICK_MS);
+    return () => window.clearInterval(interval);
+  }, [progress.status, refreshProgressTiming]);
 
   const send = useCallback(async (message: string, approved: boolean, attachments: ChatAttachment[], activeDocumentPath?: string, chatMode?: ChatMode): Promise<StreamResult> => {
     const requestId = createChatRequestId();
+    startProgress(requestId);
 
     if (!streamEnabled) {
-      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
-      const response = await fetchWithTimeout('/api/chat', {
-        method: 'POST',
-        headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),
-        body: JSON.stringify(requestBody),
-      }, requestTimeoutMs);
-      if (!response.ok) {
-        throw await readChatRequestError(response, '聊天失败，请稍后重试。');
+      try {
+        const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
+        const response = await fetchWithTimeout('/api/chat', {
+          method: 'POST',
+          headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),
+          body: JSON.stringify(requestBody),
+        }, requestTimeoutMs);
+        if (!response.ok) {
+          throw await readChatRequestError(response, '聊天失败，请稍后重试。');
+        }
+        const data = (await response.json()) as StreamResult;
+        finishProgress('idle');
+        return data;
+      } catch (error) {
+        finishProgress('error', error instanceof Error ? error.message : '聊天失败，请稍后重试。');
+        throw error;
       }
-      return (await response.json()) as StreamResult;
     }
 
     let sawStreamData = false;
@@ -182,19 +317,31 @@ export function useChatStream({ activeProjectId, onAssistantStart, onAssistantCh
             }
 
             if (event === 'ready') {
+              progressLastEventAtRef.current = Date.now();
+              refreshProgressTiming();
+              continue;
+            }
+
+            if (event === 'phase' || event === 'heartbeat') {
+              markProgressEvent(readProgressEvent(data));
               continue;
             }
 
             if (event === 'proposal_item') {
               sawStreamData = true;
+              progressLastEventAtRef.current = Date.now();
+              refreshProgressTiming();
             }
 
             if (event === 'error') {
-              throw readStreamError(data);
+              const streamError = readStreamError(data);
+              finishProgress('error', streamError.message);
+              throw streamError;
             }
 
             if (event === 'done') {
               sawStreamData = true;
+              progressLastEventAtRef.current = Date.now();
               finalResult = JSON.parse(data) as StreamResult;
             }
           }
@@ -202,10 +349,12 @@ export function useChatStream({ activeProjectId, onAssistantStart, onAssistantCh
 
         setIsStreaming(false);
         if (finalResult) {
+          finishProgress('idle');
           return finalResult;
         }
 
         if (sawStreamData) {
+          finishProgress('error', '聊天流已中断，请重试。');
           throw new Error(STREAM_PARTIAL_ERROR);
         }
 
@@ -215,35 +364,47 @@ export function useChatStream({ activeProjectId, onAssistantStart, onAssistantCh
       }
     } catch (error) {
       if (error instanceof Error && error.message === STREAM_PARTIAL_ERROR) {
+        finishProgress('error', '聊天流已中断，请重试。');
         throw error;
       }
 
       if (sawStreamData) {
+        finishProgress('error', '聊天流已中断，请重试。');
         throw new Error(STREAM_PARTIAL_ERROR);
       }
 
       if (error instanceof ChatRequestError) {
+        finishProgress('error', error.message);
         throw error;
       }
 
-      const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
-      const response = await fetchWithTimeout('/api/chat', {
-        method: 'POST',
-        headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),
-        body: JSON.stringify(requestBody),
-      }, requestTimeoutMs);
-      if (!response.ok) {
-        throw await readChatRequestError(response, '聊天失败，请稍后重试。');
+      try {
+        const requestBody = buildRequestBody(message, approved, attachments, activeDocumentPath, chatMode, requestId);
+        const response = await fetchWithTimeout('/api/chat', {
+          method: 'POST',
+          headers: buildProjectScopedHeaders({ 'Content-Type': 'application/json' }, activeProjectId),
+          body: JSON.stringify(requestBody),
+        }, requestTimeoutMs);
+        if (!response.ok) {
+          const requestError = await readChatRequestError(response, '聊天失败，请稍后重试。');
+          finishProgress('error', requestError.message);
+          throw requestError;
+        }
+        const data = (await response.json()) as StreamResult;
+        finishProgress('idle');
+        return data;
+      } catch (fallbackError) {
+        finishProgress('error', fallbackError instanceof Error ? fallbackError.message : '聊天失败，请稍后重试。');
+        throw fallbackError;
       }
-      const data = (await response.json()) as StreamResult;
-      return data;
     } finally {
       setIsStreaming(false);
     }
-  }, [activeProjectId, onAssistantChunk, onAssistantStart, requestTimeoutMs, streamEnabled]);
+  }, [activeProjectId, finishProgress, markProgressEvent, onAssistantChunk, onAssistantStart, refreshProgressTiming, requestTimeoutMs, startProgress, streamEnabled]);
 
   return {
     isStreaming,
+    progress,
     send,
   };
 }

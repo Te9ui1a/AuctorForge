@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { cp } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -96,6 +96,7 @@ type CreateAppOptions = {
   skillPackPath: string;
   userConfigDir?: string;
   folderPicker?: FolderPicker;
+  chatStreamHeartbeatIntervalMs?: number;
 };
 
 const projectSessionWriteQueues = new Map<string, Promise<void>>();
@@ -153,6 +154,17 @@ type ChatTurnContext = {
   routeReply: FastifyReply;
 };
 
+type ChatStreamProgressPhase =
+  | 'preparing'
+  | 'building_prompt'
+  | 'calling_model'
+  | 'validating'
+  | 'snapshotting';
+
+type ChatStreamProgressReporter = {
+  phase: (phase: ChatStreamProgressPhase) => void;
+};
+
 const FALSE_WRITE_CLAIM_PATTERN =
   /(已经?.{0,24}(写入|保存|落盘|同步)|已为你.{0,16}(写好|保存)|后台保存|后台已保存|已经提交写入|已生成并写入|已将.{0,20}写入)/u;
 
@@ -161,6 +173,7 @@ export function createApp({
   skillPackPath,
   userConfigDir = process.env.VITEST ? initialProjectRoot ?? homedir() : homedir(),
   folderPicker = createNativeFolderPicker(),
+  chatStreamHeartbeatIntervalMs = 10_000,
 }: CreateAppOptions) {
   const app = Fastify();
   app.setErrorHandler((error, request, reply) => {
@@ -192,6 +205,7 @@ export function createApp({
   );
   let runtimeState = createProjectRuntimeState(activeProjectContext.get()?.rootPath ?? '');
   const runtimeStateScope = new AsyncLocalStorage<{ state: ProjectRuntimeState; projectKey: RuntimeProjectKey | null }>();
+  const chatStreamProgressScope = new AsyncLocalStorage<ChatStreamProgressReporter>();
   const liveMemoryStore = createProjectRuntimeStateStore<ProjectRuntimeState>();
   const chatTurnRegistry = createChatTurnRegistry<unknown>();
   const proposalApprovalService = createProposalApprovalService<PendingProposal, PendingDecision, ProjectRuntimeState['workflowState']>({
@@ -204,6 +218,7 @@ export function createApp({
     syncWorkflowFiles,
   });
   const workflowSnapshotsBeforeTurn = new WeakMap<ChatTurnContext, string | null>();
+  const chatStreamProgressReporters = new Map<string, ChatStreamProgressReporter>();
   const commandHandlers: Array<ChatTurnServiceHandler<ChatTurnContext, unknown>> = [
     { name: 'approval', handle: handleApprovalCommand },
     { name: 'progress-summary', handle: handleProgressSummaryCommand },
@@ -257,7 +272,13 @@ export function createApp({
       activeDocumentPath,
       routeReply,
     }),
-    beforeRun: ({ context }) => {
+    beforeRun: ({ context, body, projectKey }) => {
+      const progressKey = buildChatStreamProgressKey(projectKey, normalizeRequestId(body.requestId));
+      const progressReporter = progressKey ? chatStreamProgressReporters.get(progressKey) : undefined;
+      if (progressReporter) {
+        chatStreamProgressScope.enterWith(progressReporter);
+      }
+
       if (context.isPlanMode) {
         getRuntimeState().pendingProposal = null;
         getRuntimeState().pendingDecision = null;
@@ -294,6 +315,31 @@ export function createApp({
 
   function getRuntimeState() {
     return runtimeStateScope.getStore()?.state ?? runtimeState;
+  }
+
+  function reportChatStreamPhase(phase: ChatStreamProgressPhase) {
+    chatStreamProgressScope.getStore()?.phase(phase);
+  }
+
+  function buildChatStreamProgressKey(projectKey: RuntimeProjectKey | null, requestId: string | null) {
+    return projectKey && requestId ? `${projectKey}\u0000${requestId}` : null;
+  }
+
+  async function resolveChatStreamProjectKey(headers: Parameters<typeof resolveProjectRequestContext>[0]) {
+    const projectContext = resolveProjectRequestContext(headers, await readRegistryStore());
+    if (projectContext.kind !== 'project') {
+      return getActiveProjectKey();
+    }
+
+    return getProjectKeyForActiveProject({
+      projectId: projectContext.entry.id,
+      rootPath: projectContext.entry.rootPath,
+      displayName: projectContext.entry.displayName,
+    });
+  }
+
+  function createChatStreamRequestId() {
+    return `chat-stream-${randomUUID()}`;
   }
 
   function getRequestProjectKey() {
@@ -2081,8 +2127,19 @@ export function createApp({
   // then emitted as proposal_item + done events. Keep frontend timeouts aligned
   // with backend generation timeout until this becomes true token streaming.
   app.post<{ Body: ChatTurnBody }>('/api/chat/stream', async (request, reply) => {
+    const currentPhase = { value: 'preparing' as ChatStreamProgressPhase };
+    const requestId = normalizeRequestId(request.body.requestId) ?? createChatStreamRequestId();
+    const chatTurnBody = {
+      ...request.body,
+      requestId,
+    };
+    const streamProjectKey = await resolveChatStreamProjectKey(request.headers);
+    const progressKey = buildChatStreamProgressKey(streamProjectKey, requestId);
+    const writeSseEvent = (event: string, data: unknown) => {
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
     const emitError = (statusCode: number, error: { code: string; message: string; details?: Record<string, unknown> }) => {
-      reply.raw.write(`event: error\ndata: ${JSON.stringify({ statusCode, error })}\n\n`);
+      writeSseEvent('error', { statusCode, error });
       reply.raw.end();
     };
     const parseJsonBody = (body: string) => {
@@ -2102,14 +2159,49 @@ export function createApp({
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
-    reply.raw.write(`event: ready\ndata: ${JSON.stringify({ transport: 'completed-turn-sse' })}\n\n`);
+    writeSseEvent('ready', { transport: 'completed-turn-sse' });
+    const emitPhase = (phase: ChatStreamProgressPhase) => {
+      currentPhase.value = phase;
+      writeSseEvent('phase', {
+        phase,
+        requestId,
+      });
+    };
+    const heartbeat = setInterval(() => {
+      writeSseEvent('heartbeat', {
+        phase: currentPhase.value,
+        requestId,
+      });
+    }, Math.max(1, chatStreamHeartbeatIntervalMs));
+    const cleanupStreamProgress = () => {
+      clearInterval(heartbeat);
+      if (progressKey) {
+        chatStreamProgressReporters.delete(progressKey);
+      }
+    };
+    if (progressKey) {
+      chatStreamProgressReporters.set(progressKey, { phase: emitPhase });
+    }
+    emitPhase('preparing');
 
     try {
-      const injected = await app.inject({
+      const injected = await chatStreamProgressScope.run({
+        phase: emitPhase,
+      }, () => app.inject({
         method: 'POST',
         url: '/api/chat',
         headers: buildProjectRequestHeaders(request.headers),
-        payload: request.body,
+        payload: chatTurnBody,
+      }));
+      cleanupStreamProgress();
+
+      if (injected.statusCode === 200 && currentPhase.value !== 'snapshotting') {
+        emitPhase('snapshotting');
+      }
+
+      writeSseEvent('heartbeat', {
+        phase: currentPhase.value,
+        requestId,
       });
 
       if (injected.statusCode !== 200) {
@@ -2133,6 +2225,7 @@ export function createApp({
               details: data?.error?.details,
             };
         emitError(injected.statusCode, error);
+        cleanupStreamProgress();
         return reply;
       }
 
@@ -2144,17 +2237,20 @@ export function createApp({
 
       if (data === null) {
         emitError(500, genericError);
+        cleanupStreamProgress();
         return reply;
       }
 
       for (const item of data.pendingProposal?.proposedWrites ?? []) {
-        reply.raw.write(`event: proposal_item\ndata: ${JSON.stringify(item)}\n\n`);
+        writeSseEvent('proposal_item', item);
       }
 
-      reply.raw.write(`event: done\ndata: ${JSON.stringify(data)}\n\n`);
+      writeSseEvent('done', data);
       reply.raw.end();
+      cleanupStreamProgress();
       return reply;
     } catch {
+      cleanupStreamProgress();
       emitError(500, genericError);
       return reply;
     }
@@ -2252,6 +2348,7 @@ export function createApp({
   ) {
     const writePolicy = getCurrentWritePolicy(activeDocumentPath);
 
+    reportChatStreamPhase('building_prompt');
     const prompt = await buildPrompt({
       projectRoot: getRuntimeState().projectRoot,
       skillPackPath,
@@ -2266,6 +2363,7 @@ export function createApp({
       discussionNotes: getRuntimeState().discussionBuffer.getNotes(getCurrentStep()),
     });
 
+    reportChatStreamPhase('calling_model');
     return generateDiscussionReply({
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
@@ -2294,6 +2392,7 @@ export function createApp({
     returnTarget?: WorkflowReturnTarget | null;
   }) {
     const writePolicy = getCurrentWritePolicy(activeDocumentPath);
+    reportChatStreamPhase('building_prompt');
     const prompt = await buildPrompt({
       projectRoot: getRuntimeState().projectRoot,
       skillPackPath,
@@ -2310,6 +2409,7 @@ export function createApp({
     let reply: AssistantReply;
 
     try {
+      reportChatStreamPhase('calling_model');
       reply = await generateAssistantReply({
         systemPrompt: prompt.systemPrompt,
         userPrompt: prompt.userPrompt,
@@ -2327,6 +2427,7 @@ export function createApp({
       return sendAssistantError(routeReply, error);
     }
 
+    reportChatStreamPhase('validating');
     reply = augmentAssistantReplyForCurrentStep(reply, prompt.projectFiles);
     const replyValidation = validateAssistantReplyForCurrentStep(reply, prompt.projectFiles);
     if (replyValidation !== null) {
@@ -2345,6 +2446,7 @@ export function createApp({
     }
 
     const state = getRuntimeState();
+    reportChatStreamPhase('snapshotting');
     state.pendingProposal = await snapshotProposal(state.projectRoot, requiredProjectReads ?? prompt.step.requiredProjectReads, {
       ...reply,
       ...(returnTarget !== undefined ? { returnTarget } : {}),

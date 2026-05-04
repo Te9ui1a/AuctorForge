@@ -137,6 +137,22 @@ async function injectWithAutoModel(app: FastifyInstance, options: Parameters<Fas
   return withAutoModel(() => app.inject(options));
 }
 
+function readSseEvents(body: string) {
+  return body
+    .trim()
+    .split('\n\n')
+    .filter((block) => block.trim().length > 0)
+    .map((block) => {
+      const event = /^event:\s*(.+)$/m.exec(block)?.[1]?.trim() ?? '';
+      const dataText = /^data:\s*([\s\S]+)$/m.exec(block)?.[1] ?? 'null';
+
+      return {
+        event,
+        data: JSON.parse(dataText) as unknown,
+      };
+    });
+}
+
 function createAutoProposalFetch(forcedTargetPath?: string) {
   return vi.fn(async (_url: string, init?: RequestInit) => {
     const requestBody = String(init?.body ?? '');
@@ -198,6 +214,15 @@ function createAutoProposalFetch(forcedTargetPath?: string) {
         ],
       }),
     };
+  });
+}
+
+function createAutoProposalFetchWithDelay(delayMs: number, forcedTargetPath?: string) {
+  const fetchMock = createAutoProposalFetch(forcedTargetPath);
+
+  return vi.fn(async (url: string, init?: RequestInit) => {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fetchMock(url, init);
   });
 }
 
@@ -4219,28 +4244,114 @@ describe('createApp', () => {
     await app.close();
   });
 
-  it('returns completed-turn chat stream compatibility SSE with ready before done and no fake token events', async () => {
+  it('returns observable chat stream SSE with progress before done and no fake token events', async () => {
     const workspaceRoot = await makeWorkspace();
-    const app = createApp({ projectRoot: workspaceRoot, skillPackPath, userConfigDir: workspaceRoot });
+    const app = createApp({
+      projectRoot: workspaceRoot,
+      skillPackPath,
+      userConfigDir: workspaceRoot,
+      chatStreamHeartbeatIntervalMs: 1,
+    });
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', createAutoProposalFetchWithDelay(5));
 
     await app.inject({ method: 'POST', url: '/api/workspace/init' });
 
-    const response = await injectWithAutoModel(app, {
+    const response = await app.inject({
       method: 'POST',
       url: '/api/chat/stream',
       payload: {
         message: '生成一版创意脑暴草案',
         approved: false,
+        requestId: 'stream-progress-success',
       },
     });
+    const events = readSseEvents(response.body);
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/event-stream');
     expect(response.body).toContain('event: ready');
     expect(response.body).toContain('data: {"transport":"completed-turn-sse"}');
     expect(response.body.indexOf('event: ready')).toBeLessThan(response.body.indexOf('event: done'));
+    expect(events.some((item) => item.event === 'phase')).toBe(true);
+    expect(events.some((item) => item.event === 'heartbeat')).toBe(true);
+    expect(events.filter((item) => item.event === 'phase').map((item) => (item.data as { phase?: string }).phase)).toEqual(
+      expect.arrayContaining(['preparing', 'building_prompt', 'calling_model', 'validating', 'snapshotting']),
+    );
+    expect(events.find((item) => item.event === 'heartbeat')?.data).toMatchObject({
+      requestId: 'stream-progress-success',
+      phase: expect.any(String),
+    });
     expect(response.body).not.toContain('event: token');
     expect(response.body).toContain('event: proposal_item');
+    expect(response.body).toContain('event: done');
+
+    await app.close();
+  });
+
+  it('emits model-generation progress phases for explicit project stream requests without a client request id', async () => {
+    const userConfigDir = await makeWorkspace();
+    const projectsRoot = await makeWorkspace();
+    const alphaRoot = path.join(projectsRoot, 'alpha');
+    const betaRoot = path.join(projectsRoot, 'beta');
+
+    await createProject({
+      userConfigDir,
+      rootPath: alphaRoot,
+      displayName: 'Alpha 项目',
+      entryMode: 'create',
+      skillPackPath,
+      now: () => '2026-04-04T10:00:00.000Z',
+      createProjectId: () => 'proj_alpha',
+    });
+    await createProject({
+      userConfigDir,
+      rootPath: betaRoot,
+      displayName: 'Beta 项目',
+      entryMode: 'create',
+      skillPackPath,
+      now: () => '2026-04-04T11:00:00.000Z',
+      createProjectId: () => 'proj_beta',
+    });
+    const app = createApp({
+      projectRoot: alphaRoot,
+      skillPackPath,
+      userConfigDir,
+      chatStreamHeartbeatIntervalMs: 1,
+    });
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', createAutoProposalFetchWithDelay(5));
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/projects/open',
+      payload: { projectId: 'proj_alpha', entryMode: 'create' },
+    });
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await app.inject({
+      method: 'POST',
+      url: '/api/projects/open',
+      payload: { projectId: 'proj_beta', entryMode: 'create' },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/chat/stream',
+      headers: { 'x-project-id': 'proj_alpha' },
+      payload: {
+        message: '生成 Alpha 专属创意脑暴草案',
+        approved: false,
+      },
+    });
+    const events = readSseEvents(response.body);
+    const phaseEvents = events.filter((item) => item.event === 'phase') as Array<{ event: string; data: { phase?: string; requestId?: string } }>;
+    const requestIds = new Set(phaseEvents.map((item) => item.data.requestId).filter(Boolean));
+
+    expect(response.statusCode).toBe(200);
+    expect(phaseEvents.map((item) => item.data.phase)).toEqual(
+      expect.arrayContaining(['preparing', 'building_prompt', 'calling_model', 'validating', 'snapshotting']),
+    );
+    expect(requestIds.size).toBe(1);
     expect(response.body).toContain('event: done');
 
     await app.close();
@@ -4280,8 +4391,10 @@ describe('createApp', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain('event: ready');
+    expect(response.body).toContain('event: phase');
     expect(response.body).toContain('event: error');
     expect(response.body.indexOf('event: ready')).toBeLessThan(response.body.indexOf('event: error'));
+    expect(response.body.indexOf('event: phase')).toBeLessThan(response.body.indexOf('event: error'));
     expect(response.body).toContain('"statusCode":502');
     expect(response.body).toContain('"code":"proposal-upstream-response"');
     expect(response.body).toContain('"message":"提案生成失败：openai-compatible 模型服务返回了非成功响应。"');

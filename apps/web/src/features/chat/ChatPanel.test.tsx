@@ -211,6 +211,50 @@ describe('ChatPanel', () => {
     expect(readMediaRuleProperty('(prefers-reduced-motion: reduce)', "[data-chat-surface='streaming-indicator'] [data-chat-motion-line]", 'animation')).toBe('none');
   });
 
+  it('renders observable generation progress with phase, elapsed time, freshness, and long-wait copy', () => {
+    renderChatPanel({
+      assistantStatus: 'thinking',
+      generationProgress: {
+        status: 'active',
+        phase: 'calling_model',
+        requestId: 'turn-progress',
+        elapsedMs: 122_000,
+        lastEventAgeMs: 8_000,
+      },
+    });
+
+    const progressStatus = screen.getByRole('status', { name: '生成进度' });
+
+    expect(progressStatus).toHaveAttribute('data-chat-surface', 'generation-progress');
+    expect(progressStatus).toHaveTextContent('正在生成 · 02:02');
+    expect(progressStatus).toHaveTextContent('阶段：调用模型生成正文');
+    expect(progressStatus).toHaveTextContent('连接正常，上次响应 8 秒前');
+    expect(progressStatus).toHaveTextContent('长章节通常需要 2-5 分钟，请保持页面打开');
+    expect(document.querySelector('[data-chat-progress-state="active"]')).not.toBeNull();
+  });
+
+  it('renders terminal generation progress failures without adding a chat message', () => {
+    renderChatPanel({
+      messages: [{ role: 'user', content: '开始写第31章' }],
+      generationProgress: {
+        status: 'error',
+        phase: 'calling_model',
+        requestId: 'turn-progress',
+        elapsedMs: 310_000,
+        lastEventAgeMs: 45_000,
+        errorMessage: '聊天失败，请稍后重试。',
+      },
+    });
+
+    const progressStatus = screen.getByRole('status', { name: '生成失败' });
+    const messages = document.querySelectorAll('[data-chat-message-role]');
+
+    expect(progressStatus).toHaveTextContent('生成失败');
+    expect(progressStatus).toHaveTextContent('聊天失败，请稍后重试。');
+    expect(progressStatus).toHaveTextContent('阶段：调用模型生成正文');
+    expect(messages).toHaveLength(1);
+  });
+
   it('disables sending while the composer has no text or attachments', () => {
     renderChatPanel({ chatInput: '   ' });
 
