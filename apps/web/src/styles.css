@@ -132,6 +132,33 @@ textarea {
   font: inherit;
 }
 
+button:not(:disabled),
+a[href],
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'],
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+[data-entry-surface='project-card'][data-clickable-surface='true'] {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover,
+  [role='button']:not([aria-disabled='true']):hover {
+    transform: translateY(-1px);
+  }
+}
+
 .app-shell {
   position: relative;
   display: grid;
@@ -2279,6 +2306,17 @@ textarea {
 
 [data-entry-surface='project-manager'] [data-entry-surface='project-card'][data-project-density='compact'] {
   height: 100%;
+}
+
+[data-entry-surface='project-card'][data-clickable-surface='true'] {
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-entry-surface='project-card'][data-clickable-surface='true']:hover {
+    transform: translateY(-1px);
+    border-color: rgba(205, 193, 175, 0.24);
+  }
 }
 
 .startup-management-detail {

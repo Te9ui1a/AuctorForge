@@ -97,6 +97,7 @@ export function ProjectCard({ project, onClick, isSelected, variant = 'recent', 
     return (
       <article
         data-entry-surface="project-card"
+        data-clickable-surface="true"
         data-project-state={isSelected ? 'selected' : 'idle'}
         data-project-variant={variant}
         data-project-density="compact"
@@ -128,6 +129,7 @@ export function ProjectCard({ project, onClick, isSelected, variant = 'recent', 
     <button
       type="button"
       data-entry-surface="project-card"
+      data-clickable-surface="true"
       data-project-state={isSelected ? 'selected' : 'idle'}
       data-project-variant={variant}
       data-project-density="compact"

@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectManagerPanel } from './ProjectManagerPanel';
@@ -28,6 +30,9 @@ const projects: ProjectInfo[] = [
     coreTask: '留作参考',
   },
 ];
+
+const srcRoot = resolve(__dirname, '../..');
+const stylesCssPath = resolve(srcRoot, 'styles.css');
 
 function expectLucideStartupIcon(button: HTMLElement, iconName: string) {
   expect(button.querySelector(`[data-startup-icon="${iconName}"][data-icon-system="lucide"]`)).toBeTruthy();
@@ -109,6 +114,13 @@ describe('ProjectManagerPanel', () => {
     expect(within(recentProjectCard as HTMLElement).getByText('正文推进')).toBeInTheDocument();
     expect(within(recentProjectCard as HTMLElement).getByText('完善第二章冲突')).toBeInTheDocument();
     expect(continueButton).toBeInTheDocument();
+  });
+
+  it('defines pointer and restrained hover feedback for clickable project cards', () => {
+    const stylesCss = readFileSync(stylesCssPath, 'utf8');
+
+    expect(stylesCss).toMatch(/\[data-entry-surface='project-card'\]\[data-clickable-surface='true'\][\s\S]*cursor:\s*pointer/);
+    expect(stylesCss).toMatch(/\[data-entry-surface='project-card'\]\[data-clickable-surface='true'\]:hover[\s\S]*transform:\s*translateY\(-1px\)/);
   });
 
   it('uses shared control tiers and Lucide-led icons for management actions', () => {

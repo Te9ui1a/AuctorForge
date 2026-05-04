@@ -114,6 +114,15 @@ describe('button tiers', () => {
     expect(stylesCss).not.toMatch(/(^|\n)\.button-secondary\s*\{/);
   });
 
+  it('defines shared cursor and hover feedback for enabled and disabled controls', () => {
+    const stylesCss = readFileSync(stylesCssPath, 'utf8');
+
+    expect(stylesCss).toMatch(/button:not\(:disabled\)[\s\S]*cursor:\s*pointer/);
+    expect(stylesCss).toMatch(/\[role='button'\]:not\(\[aria-disabled='true'\]\)[\s\S]*cursor:\s*pointer/);
+    expect(stylesCss).toMatch(/button:disabled[\s\S]*cursor:\s*not-allowed/);
+    expect(stylesCss).toMatch(/@media \(hover: hover\) and \(pointer: fine\)[\s\S]*button:not\(:disabled\):hover[\s\S]*transform:\s*translateY\(-1px\)/);
+  });
+
   it('keeps shared editor and document tokens out of the old bright-blue accent family', () => {
     const tokensCss = readFileSync(tokensCssPath, 'utf8');
 
