@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectManagerPanel } from './ProjectManagerPanel';
@@ -57,7 +57,7 @@ describe('ProjectManagerPanel', () => {
   });
 
   it('renders recent projects with direct continue actions and no management actions', () => {
-    render(
+    const { container } = render(
       <ProjectManagerPanel
         projects={projects}
         onSelectProject={vi.fn()}
@@ -68,8 +68,47 @@ describe('ProjectManagerPanel', () => {
     );
 
     expect(screen.getByRole('heading', { name: '最近项目' })).toBeInTheDocument();
+    expect(container.querySelector('[data-project-manager-layout="compact-grid"]')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /选择并继续/ })).toHaveLength(2);
     expect(screen.queryByRole('button', { name: '修复项目' })).not.toBeInTheDocument();
+  });
+
+  it('uses the compact grid layout for project management cards', () => {
+    const { container } = render(
+      <ProjectManagerPanel
+        projects={projects}
+        onSelectProject={vi.fn()}
+        selectedProjectId="proj-1"
+        variant="management"
+        onRepairProject={vi.fn()}
+        onToggleArchiveProject={vi.fn()}
+        onRemoveProject={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: '项目管理' })).toBeInTheDocument();
+    expect(container.querySelector('[data-project-manager-layout="compact-grid"]')).toBeTruthy();
+    expect(container.querySelectorAll('[data-entry-surface="project-card"][data-project-variant="management"]')).toHaveLength(2);
+  });
+
+  it('keeps recent project cards compact while preserving the direct continue action', () => {
+    render(
+      <ProjectManagerPanel
+        projects={projects}
+        onSelectProject={vi.fn()}
+        selectedProjectId="proj-1"
+        variant="recent"
+        onContinueProject={vi.fn()}
+      />,
+    );
+
+    const continueButton = screen.getByRole('button', { name: '选择并继续 星港回声' });
+    const recentProjectCard = continueButton.closest('[data-entry-surface="project-card"]');
+
+    expect(recentProjectCard).toHaveAttribute('data-project-density', 'compact');
+    expect(within(recentProjectCard as HTMLElement).getByText('正文推进')).toBeInTheDocument();
+    expect(within(recentProjectCard as HTMLElement).getByText('完善第二章冲突')).toBeInTheDocument();
+    expect(continueButton).toBeInTheDocument();
   });
 
   it('uses shared control tiers and Lucide-led icons for management actions', () => {

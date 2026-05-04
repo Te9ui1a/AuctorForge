@@ -2252,12 +2252,9 @@ textarea {
   line-height: 1.7;
 }
 
-[data-project-manager-layout='editorial-stack'] {
+[data-project-manager-layout='compact-grid'] {
+  align-items: stretch;
   gap: 12px;
-}
-
-[data-project-manager-layout='editorial-grid'] {
-  gap: 14px;
 }
 
 [data-entry-surface='project-manager'][data-project-manager-variant='recent'] [data-entry-surface='project-card'][data-project-variant='recent'] {
@@ -2278,6 +2275,10 @@ textarea {
   border-color: var(--ui-entry-editorial-line);
   box-shadow: none;
   backdrop-filter: none;
+}
+
+[data-entry-surface='project-manager'] [data-entry-surface='project-card'][data-project-density='compact'] {
+  height: 100%;
 }
 
 .startup-management-detail {

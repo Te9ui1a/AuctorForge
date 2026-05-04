@@ -72,11 +72,8 @@ export function ProjectManagerPanel({
       </div>
 
       <div
-        data-project-manager-layout={isRecentVariant ? 'editorial-stack' : 'editorial-grid'}
-        className={cn(
-          'startup-project-manager-list min-h-0 overflow-auto pr-1',
-          isRecentVariant ? 'grid gap-3' : 'grid max-h-[420px] gap-4 md:grid-cols-2 xl:grid-cols-2',
-        )}
+        data-project-manager-layout="compact-grid"
+        className="startup-project-manager-list grid min-h-0 gap-3 overflow-auto pr-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       >
         {projects.length === 0 ? (
           <div
