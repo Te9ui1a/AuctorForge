@@ -9,6 +9,7 @@ import type {
 import {
   PREVIOUS_CHAPTER_TOKEN,
   chapterDraftPath,
+  chapterFinalPath,
   chapterReviewPath,
   previousChapterDraftPath,
   VOLUME_CHAPTER_OUTLINE_PATH,
@@ -213,5 +214,6 @@ function materializeChapterPath(filePath: string, volumeNumber: number, chapterN
     .replace(VOLUME_OUTLINE_PATH(1), VOLUME_OUTLINE_PATH(volumeNumber))
     .replace(VOLUME_CHAPTER_OUTLINE_PATH(1), VOLUME_CHAPTER_OUTLINE_PATH(volumeNumber))
     .replace(chapterDraftPath(1), chapterDraftPath(chapterNumber))
+    .replace(chapterFinalPath(1), chapterFinalPath(chapterNumber))
     .replace(chapterReviewPath(1), chapterReviewPath(chapterNumber));
 }

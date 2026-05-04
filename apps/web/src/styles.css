@@ -956,6 +956,11 @@ textarea {
   max-width: 16rem;
 }
 
+.chat-generation-progress {
+  min-height: 96px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
 [data-chat-surface='streaming-indicator'] [data-chat-motion-line] {
   display: block;
   width: 100%;

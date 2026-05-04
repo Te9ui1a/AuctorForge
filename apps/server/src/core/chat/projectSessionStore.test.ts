@@ -62,7 +62,7 @@ describe('projectSessionStore', () => {
           stepId: 'define-direction',
           substepId: 'brainstorm',
           module: 'define' as const,
-          notes: ['主角先走宗门线，再转朝堂线'],
+          notes: ['主角先走组织线，再转朝堂线'],
         },
       ],
       workflow: {
@@ -86,7 +86,7 @@ describe('projectSessionStore', () => {
       discussionNotes: legacySession.discussionNotes,
       workflow: legacySession.workflow,
     });
-    await expect(readFile(resolveProjectSessionPath(projectRoot), 'utf8')).resolves.toContain('主角先走宗门线，再转朝堂线');
+    await expect(readFile(resolveProjectSessionPath(projectRoot), 'utf8')).resolves.toContain('主角先走组织线，再转朝堂线');
     await expect(readFile(resolveProjectSessionPath(projectRoot), 'utf8')).resolves.not.toContain('preferredChatMode');
   });
 

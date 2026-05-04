@@ -29,6 +29,7 @@
 - [x] 4.3 Route user requests such as "按审查报告修改" or "执行局部改写任务" through scoped repair instructions that preserve non-target chapter text.
 - [x] 4.4 Ensure existing pending-proposal approval/write behavior remains unchanged and no lint result auto-overwrites project files.
 - [x] 4.5 Update workflow skill docs for review/write to describe the local repair loop and whole-chapter rewrite escalation rule.
+- [x] 4.6 Defer AI-flavor draft validation failures into the review/revision loop so otherwise valid chapter drafts remain visible.
 
 ## 5. Verification
 
@@ -36,3 +37,4 @@
 - [x] 5.2 Add regression tests for repair verification passing, repair introducing a new issue, and repair remaining localized.
 - [x] 5.3 Add regression coverage that non-target chapter paragraphs survive local repair unchanged.
 - [x] 5.4 Run the relevant server test suite and targeted workflow tests.
+- [x] 5.5 Add regression coverage for draft proposals with AI-flavor hits and review reports that map AI-flavor-only findings to REVISE.

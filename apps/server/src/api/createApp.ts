@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createHash } from 'node:crypto';
-import { mkdir, appendFile, readFile, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { cp } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -96,7 +96,7 @@ type CreateAppOptions = {
   skillPackPath: string;
   userConfigDir?: string;
   folderPicker?: FolderPicker;
-  disableLocalProposalFallback?: boolean;
+  chatStreamHeartbeatIntervalMs?: number;
 };
 
 const projectSessionWriteQueues = new Map<string, Promise<void>>();
@@ -154,6 +154,17 @@ type ChatTurnContext = {
   routeReply: FastifyReply;
 };
 
+type ChatStreamProgressPhase =
+  | 'preparing'
+  | 'building_prompt'
+  | 'calling_model'
+  | 'validating'
+  | 'snapshotting';
+
+type ChatStreamProgressReporter = {
+  phase: (phase: ChatStreamProgressPhase) => void;
+};
+
 const FALSE_WRITE_CLAIM_PATTERN =
   /(已经?.{0,24}(写入|保存|落盘|同步)|已为你.{0,16}(写好|保存)|后台保存|后台已保存|已经提交写入|已生成并写入|已将.{0,20}写入)/u;
 
@@ -162,7 +173,7 @@ export function createApp({
   skillPackPath,
   userConfigDir = process.env.VITEST ? initialProjectRoot ?? homedir() : homedir(),
   folderPicker = createNativeFolderPicker(),
-  disableLocalProposalFallback = false,
+  chatStreamHeartbeatIntervalMs = 10_000,
 }: CreateAppOptions) {
   const app = Fastify();
   app.setErrorHandler((error, request, reply) => {
@@ -194,6 +205,7 @@ export function createApp({
   );
   let runtimeState = createProjectRuntimeState(activeProjectContext.get()?.rootPath ?? '');
   const runtimeStateScope = new AsyncLocalStorage<{ state: ProjectRuntimeState; projectKey: RuntimeProjectKey | null }>();
+  const chatStreamProgressScope = new AsyncLocalStorage<ChatStreamProgressReporter>();
   const liveMemoryStore = createProjectRuntimeStateStore<ProjectRuntimeState>();
   const chatTurnRegistry = createChatTurnRegistry<unknown>();
   const proposalApprovalService = createProposalApprovalService<PendingProposal, PendingDecision, ProjectRuntimeState['workflowState']>({
@@ -206,9 +218,11 @@ export function createApp({
     syncWorkflowFiles,
   });
   const workflowSnapshotsBeforeTurn = new WeakMap<ChatTurnContext, string | null>();
+  const chatStreamProgressReporters = new Map<string, ChatStreamProgressReporter>();
   const commandHandlers: Array<ChatTurnServiceHandler<ChatTurnContext, unknown>> = [
     { name: 'approval', handle: handleApprovalCommand },
     { name: 'progress-summary', handle: handleProgressSummaryCommand },
+    { name: 'chapter-finalization', handle: handleChapterFinalizationCommand },
     { name: 'explicit-chapter-write', handle: handleExplicitChapterWriteCommand },
     { name: 'continue-next-chapter-from-review', handle: handleContinueNextChapterFromReviewCommand },
     { name: 'plan-mode', handle: handlePlanModeCommand },
@@ -258,7 +272,13 @@ export function createApp({
       activeDocumentPath,
       routeReply,
     }),
-    beforeRun: ({ context }) => {
+    beforeRun: ({ context, body, projectKey }) => {
+      const progressKey = buildChatStreamProgressKey(projectKey, normalizeRequestId(body.requestId));
+      const progressReporter = progressKey ? chatStreamProgressReporters.get(progressKey) : undefined;
+      if (progressReporter) {
+        chatStreamProgressScope.enterWith(progressReporter);
+      }
+
       if (context.isPlanMode) {
         getRuntimeState().pendingProposal = null;
         getRuntimeState().pendingDecision = null;
@@ -295,6 +315,31 @@ export function createApp({
 
   function getRuntimeState() {
     return runtimeStateScope.getStore()?.state ?? runtimeState;
+  }
+
+  function reportChatStreamPhase(phase: ChatStreamProgressPhase) {
+    chatStreamProgressScope.getStore()?.phase(phase);
+  }
+
+  function buildChatStreamProgressKey(projectKey: RuntimeProjectKey | null, requestId: string | null) {
+    return projectKey && requestId ? `${projectKey}\u0000${requestId}` : null;
+  }
+
+  async function resolveChatStreamProjectKey(headers: Parameters<typeof resolveProjectRequestContext>[0]) {
+    const projectContext = resolveProjectRequestContext(headers, await readRegistryStore());
+    if (projectContext.kind !== 'project') {
+      return getActiveProjectKey();
+    }
+
+    return getProjectKeyForActiveProject({
+      projectId: projectContext.entry.id,
+      rootPath: projectContext.entry.rootPath,
+      displayName: projectContext.entry.displayName,
+    });
+  }
+
+  function createChatStreamRequestId() {
+    return `chat-stream-${randomUUID()}`;
   }
 
   function getRequestProjectKey() {
@@ -825,19 +870,19 @@ export function createApp({
   });
 
   app.post('/api/projects/sample', async (_request, reply) => {
-    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'lantern-road');
+    const sampleRoot = path.join(userConfigDir, '.auctorforge', 'samples', 'workflow-sample');
 
     try {
       const result = await createProject({
         userConfigDir,
         rootPath: sampleRoot,
-        displayName: 'Lantern Road',
+        displayName: 'Workflow Sample',
         entryMode: 'create',
         skillPackPath,
-        createProjectId: () => 'sample_lantern_road',
+        createProjectId: () => 'sample_workflow',
       });
 
-      await writeSampleProjectFiles(sampleRoot);
+      await copySampleProjectFiles(sampleRoot, skillPackPath);
       await reconcileActiveProjectWithStore(result.store);
 
       return {
@@ -1300,7 +1345,12 @@ export function createApp({
       : null;
   }
 
-  async function handleChapterPauseCommand({ message }: ChatTurnContext) {
+  async function handleChapterPauseCommand({
+    message,
+    attachments,
+    activeDocumentPath,
+    routeReply,
+  }: ChatTurnContext) {
     if (getCurrentStep().module !== 'write' || getCurrentStep().substepId !== 'chapter-pause') {
       return null;
     }
@@ -1309,7 +1359,25 @@ export function createApp({
       return null;
     }
 
-    return handleChapterPauseTurn(message);
+    return handleChapterPauseTurn(message, attachments, activeDocumentPath, routeReply);
+  }
+
+  async function handleChapterFinalizationCommand({
+    message,
+    attachments,
+    activeDocumentPath,
+    routeReply,
+  }: ChatTurnContext) {
+    const current = getCurrentStep();
+    const canFinalizeFromCurrentStep =
+      (current.module === 'write' && ['chapter-draft', 'chapter-pause'].includes(current.substepId))
+      || (current.module === 'review' && current.substepId === 'chapter-review');
+
+    if (!canFinalizeFromCurrentStep || !isChapterFinalizationIntent(message)) {
+      return null;
+    }
+
+    return enterChapterFinalizationTurn(message, attachments, activeDocumentPath, routeReply);
   }
 
   async function handleExplicitChapterWriteCommand({
@@ -1320,6 +1388,9 @@ export function createApp({
   }: ChatTurnContext) {
     const current = getCurrentStep();
     const requestedChapterNumber = extractRequestedChapterNumber(message);
+    const targetsCurrentChapter =
+      requestedChapterNumber === null
+      || requestedChapterNumber === getRuntimeState().workflowState.chapterNumber;
     const isSameChapterReviewRestart =
       requestedChapterNumber === getRuntimeState().workflowState.chapterNumber
       && current.module === 'review'
@@ -1329,15 +1400,14 @@ export function createApp({
       isReviewTrigger(message)
       || shouldTreatAsWriteRevision(current, message)
       ||
-      requestedChapterNumber === null
-      || (requestedChapterNumber === getRuntimeState().workflowState.chapterNumber && !isSameChapterReviewRestart)
+      (requestedChapterNumber === getRuntimeState().workflowState.chapterNumber && !isSameChapterReviewRestart && current.substepId !== 'chapter-draft')
       || (current.module !== 'write' && current.module !== 'review')
       || (!isChapterWriteStartIntent(message) && !isExplicitChapterWriteRepairIntent(message))
     ) {
       return null;
     }
 
-    if (requestedChapterNumber < getRuntimeState().workflowState.chapterNumber) {
+    if (requestedChapterNumber !== null && requestedChapterNumber < getRuntimeState().workflowState.chapterNumber) {
       const existingDraft = await readProjectFileIfExists(getRuntimeState().projectRoot, chapterDraftPath(requestedChapterNumber));
       if (existingDraft !== null) {
         return {
@@ -1352,7 +1422,7 @@ export function createApp({
     getRuntimeState().workflowState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'write-chapter', {
       mode: 'standard',
       substepId: 'chapter-draft',
-      chapterNumber: requestedChapterNumber,
+      chapterNumber: targetsCurrentChapter ? getRuntimeState().workflowState.chapterNumber : requestedChapterNumber,
     });
     getRuntimeState().pendingProposal = null;
     getRuntimeState().pendingDecision = null;
@@ -1664,7 +1734,16 @@ export function createApp({
     return handleAnalyzeTurn(message, attachments, activeDocumentPath, routeReply);
   }
 
-  async function handleChapterPauseTurn(message: string) {
+  async function handleChapterPauseTurn(
+    message: string,
+    attachments: Array<{ name: string; mimeType: string; size: number; textContent: string }> = [],
+    activeDocumentPath: string | null = null,
+    routeReply?: FastifyReply,
+  ) {
+    if (isChapterFinalizationIntent(message)) {
+      return enterChapterFinalizationTurn(message, attachments, activeDocumentPath, routeReply);
+    }
+
     if (isContinueNextChapterTrigger(message)) {
       const maxOutlinedChapterNumber = await readMaxOutlinedChapterNumber();
 
@@ -1733,14 +1812,17 @@ export function createApp({
   ) {
     const current = getCurrentStep();
     const reviewSubstepId = resolveReviewSubstepId(message, current.module);
+    const requestedChapterNumber = extractRequestedChapterNumber(message);
 
     if (!reviewSubstepId) {
       return null;
     }
 
+    const reviewChapterNumber = requestedChapterNumber ?? getRuntimeState().workflowState.chapterNumber;
     const reviewState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'review-chapter', {
       mode: 'standard',
       substepId: reviewSubstepId,
+      chapterNumber: reviewChapterNumber,
       returnTarget:
         current.module === 'review'
           ? getRuntimeState().workflowState.returnTarget
@@ -1811,6 +1893,45 @@ export function createApp({
       routeReply,
       stepTitle: writeStep.substepTitle,
     });
+  }
+
+  async function enterChapterFinalizationTurn(
+    message: string,
+    attachments: Array<{ name: string; mimeType: string; size: number; textContent: string }> = [],
+    activeDocumentPath: string | null = null,
+    routeReply?: FastifyReply,
+  ) {
+    getRuntimeState().workflowState = jumpToWorkflowStep(contract, getRuntimeState().workflowState, 'write-chapter', {
+      substepId: 'chapter-finalize',
+      chapterNumber: getRuntimeState().workflowState.chapterNumber,
+    });
+    getRuntimeState().pendingProposal = null;
+    getRuntimeState().pendingDecision = null;
+
+    const currentWriteStep = getCurrentStep();
+    await syncWorkflowFiles({
+      projectRoot: getRuntimeState().projectRoot,
+      stepId: currentWriteStep.id,
+      substepId: currentWriteStep.substepId,
+      volumeNumber: getRuntimeState().workflowState.volumeNumber,
+      chapterNumber: getRuntimeState().workflowState.chapterNumber,
+      revisionMode: true,
+    });
+
+    return routeReply
+      ? generateAssistantProposalTurn({
+          userMessage: message,
+          attachments,
+          activeDocumentPath,
+          routeReply,
+          stepTitle: currentWriteStep.substepTitle,
+        })
+      : {
+          reply: `已进入${formatChapterLabel(getRuntimeState().workflowState.chapterNumber)}定稿修订。`,
+          session: buildSessionResponse(activeDocumentPath),
+          pendingDecision: null,
+          pendingProposal: null,
+        };
   }
 
   function handleDiscussionHoldTurn(
@@ -2006,8 +2127,19 @@ export function createApp({
   // then emitted as proposal_item + done events. Keep frontend timeouts aligned
   // with backend generation timeout until this becomes true token streaming.
   app.post<{ Body: ChatTurnBody }>('/api/chat/stream', async (request, reply) => {
+    const currentPhase = { value: 'preparing' as ChatStreamProgressPhase };
+    const requestId = normalizeRequestId(request.body.requestId) ?? createChatStreamRequestId();
+    const chatTurnBody = {
+      ...request.body,
+      requestId,
+    };
+    const streamProjectKey = await resolveChatStreamProjectKey(request.headers);
+    const progressKey = buildChatStreamProgressKey(streamProjectKey, requestId);
+    const writeSseEvent = (event: string, data: unknown) => {
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
     const emitError = (statusCode: number, error: { code: string; message: string; details?: Record<string, unknown> }) => {
-      reply.raw.write(`event: error\ndata: ${JSON.stringify({ statusCode, error })}\n\n`);
+      writeSseEvent('error', { statusCode, error });
       reply.raw.end();
     };
     const parseJsonBody = (body: string) => {
@@ -2027,14 +2159,49 @@ export function createApp({
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
-    reply.raw.write(`event: ready\ndata: ${JSON.stringify({ transport: 'completed-turn-sse' })}\n\n`);
+    writeSseEvent('ready', { transport: 'completed-turn-sse' });
+    const emitPhase = (phase: ChatStreamProgressPhase) => {
+      currentPhase.value = phase;
+      writeSseEvent('phase', {
+        phase,
+        requestId,
+      });
+    };
+    const heartbeat = setInterval(() => {
+      writeSseEvent('heartbeat', {
+        phase: currentPhase.value,
+        requestId,
+      });
+    }, Math.max(1, chatStreamHeartbeatIntervalMs));
+    const cleanupStreamProgress = () => {
+      clearInterval(heartbeat);
+      if (progressKey) {
+        chatStreamProgressReporters.delete(progressKey);
+      }
+    };
+    if (progressKey) {
+      chatStreamProgressReporters.set(progressKey, { phase: emitPhase });
+    }
+    emitPhase('preparing');
 
     try {
-      const injected = await app.inject({
+      const injected = await chatStreamProgressScope.run({
+        phase: emitPhase,
+      }, () => app.inject({
         method: 'POST',
         url: '/api/chat',
         headers: buildProjectRequestHeaders(request.headers),
-        payload: request.body,
+        payload: chatTurnBody,
+      }));
+      cleanupStreamProgress();
+
+      if (injected.statusCode === 200 && currentPhase.value !== 'snapshotting') {
+        emitPhase('snapshotting');
+      }
+
+      writeSseEvent('heartbeat', {
+        phase: currentPhase.value,
+        requestId,
       });
 
       if (injected.statusCode !== 200) {
@@ -2058,6 +2225,7 @@ export function createApp({
               details: data?.error?.details,
             };
         emitError(injected.statusCode, error);
+        cleanupStreamProgress();
         return reply;
       }
 
@@ -2069,17 +2237,20 @@ export function createApp({
 
       if (data === null) {
         emitError(500, genericError);
+        cleanupStreamProgress();
         return reply;
       }
 
       for (const item of data.pendingProposal?.proposedWrites ?? []) {
-        reply.raw.write(`event: proposal_item\ndata: ${JSON.stringify(item)}\n\n`);
+        writeSseEvent('proposal_item', item);
       }
 
-      reply.raw.write(`event: done\ndata: ${JSON.stringify(data)}\n\n`);
+      writeSseEvent('done', data);
       reply.raw.end();
+      cleanupStreamProgress();
       return reply;
     } catch {
+      cleanupStreamProgress();
       emitError(500, genericError);
       return reply;
     }
@@ -2177,6 +2348,7 @@ export function createApp({
   ) {
     const writePolicy = getCurrentWritePolicy(activeDocumentPath);
 
+    reportChatStreamPhase('building_prompt');
     const prompt = await buildPrompt({
       projectRoot: getRuntimeState().projectRoot,
       skillPackPath,
@@ -2191,6 +2363,7 @@ export function createApp({
       discussionNotes: getRuntimeState().discussionBuffer.getNotes(getCurrentStep()),
     });
 
+    reportChatStreamPhase('calling_model');
     return generateDiscussionReply({
       systemPrompt: prompt.systemPrompt,
       userPrompt: prompt.userPrompt,
@@ -2219,6 +2392,7 @@ export function createApp({
     returnTarget?: WorkflowReturnTarget | null;
   }) {
     const writePolicy = getCurrentWritePolicy(activeDocumentPath);
+    reportChatStreamPhase('building_prompt');
     const prompt = await buildPrompt({
       projectRoot: getRuntimeState().projectRoot,
       skillPackPath,
@@ -2235,6 +2409,7 @@ export function createApp({
     let reply: AssistantReply;
 
     try {
+      reportChatStreamPhase('calling_model');
       reply = await generateAssistantReply({
         systemPrompt: prompt.systemPrompt,
         userPrompt: prompt.userPrompt,
@@ -2247,12 +2422,12 @@ export function createApp({
         projectFiles: prompt.projectFiles,
         workflowDocs: prompt.workflowDocs,
         modelConfig: (await readActiveModelConfig(userConfigDir)) ?? undefined,
-        allowLocalFallback: !disableLocalProposalFallback,
       });
     } catch (error) {
       return sendAssistantError(routeReply, error);
     }
 
+    reportChatStreamPhase('validating');
     reply = augmentAssistantReplyForCurrentStep(reply, prompt.projectFiles);
     const replyValidation = validateAssistantReplyForCurrentStep(reply, prompt.projectFiles);
     if (replyValidation !== null) {
@@ -2271,6 +2446,7 @@ export function createApp({
     }
 
     const state = getRuntimeState();
+    reportChatStreamPhase('snapshotting');
     state.pendingProposal = await snapshotProposal(state.projectRoot, requiredProjectReads ?? prompt.step.requiredProjectReads, {
       ...reply,
       ...(returnTarget !== undefined ? { returnTarget } : {}),
@@ -2997,6 +3173,15 @@ function isContinueCurrentChapterTrigger(message: string) {
   return /(继续修改当前章|重写当前章|回到当前章)/u.test(message.trim());
 }
 
+function isChapterFinalizationIntent(message: string) {
+  const normalized = message.trim();
+  const compact = normalized.replace(/\s+/g, '');
+
+  return /(_定稿\.md|定稿)/u.test(compact)
+    || /(?:按|根据).{0,12}(审查报告|审查意见).{0,24}(生成|输出|写入|形成|产出|做成).{0,8}定稿/u.test(normalized)
+    || /(?:生成|输出|写入|形成|产出).{0,12}(最终稿|定稿版)/u.test(normalized);
+}
+
 function shouldTreatAsWriteRevision(
   step: ReturnType<typeof getCurrentWorkflowStep>,
   message: string,
@@ -3037,7 +3222,7 @@ function isGuideFreeformSubstep(step: ReturnType<typeof getCurrentWorkflowStep>)
 }
 
 function resolveReviewSubstepId(message: string, module: string) {
-  if (/设定|人设|金手指/u.test(message)) {
+  if (/设定|人设|金手指|核心能力|差异化能力/u.test(message)) {
     return 'setting-review' as const;
   }
 
@@ -3064,74 +3249,13 @@ function resolveReviewSubstepId(message: string, module: string) {
   return null;
 }
 
-async function writeSampleProjectFiles(projectRoot: string) {
-  await mkdir(path.join(projectRoot, '2-设定'), { recursive: true });
-  await mkdir(path.join(projectRoot, '3-大纲'), { recursive: true });
-  await mkdir(path.join(projectRoot, '4-正文'), { recursive: true });
-
-  const projectIndexPath = path.join(projectRoot, 'PROJECT.md');
-  const projectIndex = await readFile(projectIndexPath, 'utf8');
-  if (!projectIndex.includes('## 示例项目：Lantern Road')) {
-    await appendFile(
-      projectIndexPath,
-      [
-        '',
-        '',
-        '## 示例项目：Lantern Road',
-        '',
-        '这是 AuctorForge 内置的虚构示例，只用于熟悉本地项目结构、章节编辑和工作流切换。',
-        '故事围绕 Lin Zhao 在 border-town 找回失落灯匠手稿展开。',
-      ].join('\n'),
-      'utf8',
-    );
-  }
-
-  await writeFile(
-    path.join(projectRoot, '2-设定/2.4_主要角色设定表.md'),
-    [
-      '# 主要角色设定表',
-      '',
-      '## Lin Zhao',
-      '',
-      '- 身份：年轻灯匠，负责维护边城旧路上的引路灯。',
-      '- 外在目标：找回失落的灯匠手稿，让商队重新通过 Lantern Road。',
-      '- 内在冲突：害怕自己的判断会再次让同伴置身险境。',
-      '',
-      '## Mira Chen',
-      '',
-      '- 身份：边城书记员，熟悉旧档案和商路税册。',
-      '- 作用：提供线索，也不断质疑 Lin Zhao 的冒进。',
-    ].join('\n'),
-    'utf8',
-  );
-
-  await writeFile(
-    path.join(projectRoot, '3-大纲/第01卷_章纲.md'),
-    [
-      '# 第01卷章纲',
-      '',
-      '1. 旧灯熄灭：Lin Zhao 在 border-town 收到一盏不会熄灭的灯。',
-      '2. 手稿线索：Mira Chen 在档案室发现被涂黑的商路记录。',
-      '3. 夜路试行：两人沿 Lantern Road 进入无人驿站。',
-    ].join('\n'),
-    'utf8',
-  );
-
-  await writeFile(
-    path.join(projectRoot, '4-正文/第001章_样章.md'),
-    [
-      '# 第001章 样章',
-      '',
-      'The border-town woke before sunrise, not because of bells, but because every lantern on the eastern gate had gone dark at once.',
-      '',
-      'Lin Zhao stood beneath the last working lamp and listened to the glass hum. The sound was too steady for wind, too patient for fire.',
-      '',
-      '"If this road opens again," Mira Chen said, folding the old map under one arm, "someone will ask why it was closed."',
-      '',
-      'Lin Zhao looked toward Lantern Road, where the morning fog held its shape like a locked door.',
-    ].join('\n'),
-    'utf8',
-  );
+async function copySampleProjectFiles(projectRoot: string, skillPackPath: string) {
+  const sampleAssetRoot = path.join(skillPackPath, 'extension/assets/longformnovel/examples/workflow-sample');
+  await cp(sampleAssetRoot, projectRoot, {
+    recursive: true,
+    force: true,
+    errorOnExist: false,
+  });
 }
 
 async function findMissingProjectFiles(projectRoot: string, filePaths: string[]) {

@@ -235,6 +235,7 @@ export function useChatController({
     chatAttachments,
     chatError,
     chatErrorPayload,
+    generationProgress: chatStream.progress,
     chatInput,
     composerTurnStrategy,
     handleChatSubmit,

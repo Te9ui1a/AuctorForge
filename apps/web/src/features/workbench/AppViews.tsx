@@ -2,6 +2,7 @@ import type { ComponentPropsWithoutRef, CSSProperties, Dispatch, FormEvent, Reac
 
 import { ChatPanel } from '../chat/ChatPanel';
 import type { ChatTurnStrategy } from '../chat/chatTurnStrategy';
+import type { ChatGenerationProgress } from '../chat/useChatStream';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { EditorTabs } from '../editor/EditorTabs';
 import { FileTree } from '../files/FileTree';
@@ -66,6 +67,7 @@ type AssistantPaneViewModel = {
   canContinueDiscussion: boolean;
   chatAttachments: ChatAttachment[];
   chatError: string;
+  generationProgress: ChatGenerationProgress;
   chatInput: string;
   composerTurnStrategy: ChatTurnStrategy | null;
   handleChatSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
@@ -221,6 +223,7 @@ export function WorkbenchView({
     canContinueDiscussion,
     chatAttachments,
     chatError,
+    generationProgress,
     chatInput,
     composerTurnStrategy,
     handleChatSubmit,
@@ -387,6 +390,7 @@ export function WorkbenchView({
                   onPickFiles={(files) => void onPickFiles(files)}
                   onRemoveAttachment={handleRemoveAttachment}
                   turnStrategy={composerTurnStrategy}
+                  generationProgress={generationProgress}
                   onContinueDiscussion={canContinueDiscussion ? handleContinueDiscussion : undefined}
                   chatError={chatError}
                   writeTargetHint={writeTargetHint}

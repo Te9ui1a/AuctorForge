@@ -11,6 +11,7 @@ The desired behavior is closer to an editor pass: identify exactly what feels ar
 - Convert each issue into an actionable replacement strategy.
 - Prefer sentence, paragraph, or scene-fragment repairs over whole-chapter rewrites.
 - Verify repairs with the same rule system and report remaining issues.
+- Keep chapter drafts visible: AI-flavor hits should not reject an otherwise valid draft proposal before the user can inspect and review it.
 
 ## Non-Goals
 
@@ -67,7 +68,15 @@ The first implementation should trigger local repair through existing review/loc
 
 Alternative considered: auto-apply all lint repairs after generation. Rejected because prose repair is subjective and can damage tone.
 
-### 5. Whole-chapter rewrite is an escalation, not the default
+### 5. AI-flavor diagnostics do not reject draft visibility
+
+Chapter draft validation should continue to hard-fail contract and continuity problems: wrong chapter path, missing chapter plan, missing/mismatched heading, title drift, too-short prose, premature finale, and project-context drift. AI-flavor findings are different: they should be preserved as diagnostics and repair tasks after the draft is generated.
+
+Review augmentation may use `lintAiFlavor` severity to prioritize local repair tasks, but it should not convert AI-flavor findings alone into a hard draft-generation rejection. In review reports, blocking AI-flavor diagnostics should raise the gate to `REVISE` rather than `BLOCK`; warning-only diagnostics can remain `PASS` while still adding local repair guidance. `BLOCK` remains reserved for structural, scope, or continuity failures.
+
+Alternative considered: continue rejecting drafts that hit blocking AI-flavor rules. Rejected because it hides the generated text from the user and forces prompt guessing instead of letting the review loop produce concrete rewrite tasks.
+
+### 6. Whole-chapter rewrite is an escalation, not the default
 
 Whole-chapter rewrite should be recommended only when the chapter has dense blocking issues across multiple scenes, compressed-outline symptoms, or structural failures that cannot be fixed by local patches.
 
@@ -75,11 +84,12 @@ Whole-chapter rewrite should be recommended only when the chapter has dense bloc
 
 1. Write or review command produces/loads chapter draft.
 2. AI-flavor lint runs with the categorized rule catalog.
-3. The replacement planner groups hits by local span and attaches strategy guidance.
-4. The repair task builder emits "局部改写任务" with original snippet, problem category, writing strategy, and acceptance check.
-5. If a repair is requested, generation receives the affected snippets plus minimal surrounding context and an instruction to preserve non-target text.
-6. The proposed patched text is linted again before approval/write.
-7. The review/proposal reports PASS, remaining local issues, or escalation to whole-chapter rewrite.
+3. Draft-stage lint diagnostics may be summarized in the assistant reply, but they do not reject an otherwise valid chapter draft proposal.
+4. The replacement planner groups hits by local span and attaches strategy guidance.
+5. The repair task builder emits "局部改写任务" with original snippet, problem category, writing strategy, and acceptance check.
+6. If a repair is requested, generation receives the affected snippets plus minimal surrounding context and an instruction to preserve non-target text.
+7. The proposed patched text is linted again before approval/write.
+8. The review/proposal reports PASS, REVISE with remaining local issues, or structural escalation to whole-chapter rewrite.
 
 ## Implementation Notes
 

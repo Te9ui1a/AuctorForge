@@ -5,7 +5,7 @@ import { lintAiFlavor } from './aiFlavorLint';
 describe('aiFlavorLint', () => {
   it('flags dense AI-flavor patterns in a draft', () => {
     const result = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
       '夜色像刀一样压下来，仿佛整条街都在发抖。',
       '这不是求生，而是命运对他的审判。',
@@ -24,9 +24,9 @@ describe('aiFlavorLint', () => {
 
   it('blocks explicit banned web-novel stock phrases even when only one type appears', () => {
     const result = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
-      '沈砚深吸一口气，眼中精芒一闪，嘴角勾起冷笑。',
+      '角色甲深吸一口气，眼中精芒一闪，嘴角勾起冷笑。',
     ].join('\n'));
 
     expect(result.blocked).toBe(true);
@@ -39,9 +39,9 @@ describe('aiFlavorLint', () => {
 
   it('returns categorized evidence while preserving legacy pattern compatibility', () => {
     const result = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
-      '老郑倒吸一口凉气，显然已经震惊到了极点。',
+      '角色乙倒吸一口凉气，显然已经震惊到了极点。',
       '这意味着他们已经没有退路。',
     ].join('\n'));
 
@@ -53,7 +53,7 @@ describe('aiFlavorLint', () => {
           category: 'cliche_phrase',
           label: '禁用套话',
           matchedText: '倒吸一口凉气',
-          context: expect.stringContaining('老郑倒吸一口凉气'),
+          context: expect.stringContaining('角色乙倒吸一口凉气'),
           pattern: expect.any(RegExp),
         }),
         expect.objectContaining({
@@ -67,7 +67,7 @@ describe('aiFlavorLint', () => {
 
   it('blocks accumulated warning-level categories by threshold and explains why', () => {
     const result = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
       '夜色仿佛压了下来。',
       '他非常紧张，极其愤怒。',
@@ -87,10 +87,10 @@ describe('aiFlavorLint', () => {
 
   it('does not block concrete clean prose', () => {
     const result = lintAiFlavor([
-      '# 第001章 夹缝求生',
+      '# 第001章 待填写开局章标题',
       '',
-      '雨水顺着门槛往里爬。沈砚把账册塞进怀里，指腹按住纸角，没有看身后。',
-      '老郑停在巷口，烟袋锅碰了碰墙面。他压低声音：“别走正街。”',
+      '环境要素顺着门槛往里爬。角色甲把物件甲塞进怀里，指腹按住纸角，没有看身后。',
+      '角色乙停在巷口，物件乙碰了碰墙面。他压低声音：“别走正街。”',
     ].join('\n'));
 
     expect(result.blocked).toBe(false);

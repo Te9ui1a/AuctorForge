@@ -59,10 +59,10 @@ The system SHALL validate chapter draft proposals before exposing them as pendin
 - **THEN** the system SHALL reject the proposal
 - **AND** no pending proposal SHALL be created.
 
-#### Scenario: Proposed draft exceeds target length
+#### Scenario: Proposed draft is shorter than minimum length
 
-- **GIVEN** the target narrative length band is 3000 to 3500 characters
-- **WHEN** the proposed chapter draft has narrative length greater than 3500 characters
+- **GIVEN** the minimum narrative length is 2800 characters
+- **WHEN** the proposed chapter draft has narrative length lower than 2800 characters
 - **THEN** the system SHALL reject the proposal before approval.
 
 #### Scenario: Proposed draft contains blocking AI-flavor issues
@@ -72,23 +72,34 @@ The system SHALL validate chapter draft proposals before exposing them as pendin
 - **THEN** the system SHALL reject the proposal before approval
 - **AND** include actionable failure information in the reply.
 
-### Requirement: Local Fallback Is Project-Bound
+### Requirement: Creative Proposal Generation Requires A Configured Model
 
-Local fallback chapter generation SHALL derive prose and entities only from the active project's approved setting, role, outline, and memory files.
+Creative proposal generation SHALL require a configured model service and SHALL NOT generate novel prose, outlines, settings, reviews, or final drafts from production source code.
 
-#### Scenario: Project data is sufficient
+#### Scenario: Model credentials are missing
 
-- **GIVEN** the active project has role names, setting terms, and a resolved chapter plan
-- **WHEN** local fallback generates a chapter draft
-- **THEN** the draft SHALL use active project entities and chapter beats
-- **AND** SHALL NOT include legacy fallback-only terms unrelated to the project.
+- **GIVEN** no active model credentials are configured
+- **WHEN** the user asks the assistant to generate or write a proposal
+- **THEN** the system SHALL return `proposal-model-required`
+- **AND** no pending proposal SHALL be created.
 
-#### Scenario: Project data is insufficient
+#### Scenario: Model response fails
 
-- **GIVEN** the active project lacks enough setting, role, or chapter-plan data for safe fallback drafting
-- **WHEN** model generation is unavailable and fallback would be used
-- **THEN** the system SHALL return a blocking generation error
-- **AND** SHALL NOT emit hard-coded sample-world prose.
+- **GIVEN** model credentials are configured
+- **WHEN** the model returns an empty, invalid, or incomplete proposal
+- **THEN** the system SHALL return a structured proposal generation error
+- **AND** SHALL NOT replace the failed response with local story content.
+
+### Requirement: Sample Project Content Is Asset-Scoped
+
+Built-in sample project content SHALL live in a sample project asset directory and SHALL be copied into a user project folder when opened. Production source logic SHALL NOT embed concrete sample novel characters, locations, plot beats, or prose.
+
+#### Scenario: User opens the workflow sample
+
+- **GIVEN** the built-in workflow sample exists under the skill-pack sample assets
+- **WHEN** the user opens the sample project
+- **THEN** the server SHALL copy the sample project files into the user's sample project directory
+- **AND** the API handler SHALL NOT construct sample novel content from hard-coded strings.
 
 ### Requirement: Workflow State Is Persisted After Server-Side Chat Mutations
 

@@ -223,25 +223,25 @@ describe('DocumentEditor manuscript lane', () => {
 
   it('counts only effective narrative body characters', () => {
     renderEditor({
-      content: '# 第001章 雨夜\n\n  林照 抬头。 \n\n## 余波\n雨 停了。',
+      content: '# 第001章 场景甲\n\n  角色甲 动作甲。 \n\n## 余波\n雨 停了。',
     });
 
-    expect(screen.getByText('正文 9 字')).toBeInTheDocument();
+    expect(screen.getByText('正文 11 字')).toBeInTheDocument();
   });
 
   it('updates the narrative character count when editor content changes', () => {
-    const { rerender } = renderEditor({ content: '# 第001章\n\n雨停了。' });
+    const { rerender } = renderEditor({ content: '# 第001章\n\n场景变化甲。' });
 
-    expect(screen.getByText('正文 4 字')).toBeInTheDocument();
+    expect(screen.getByText('正文 6 字')).toBeInTheDocument();
 
-    rerender(<DocumentEditor {...baseProps} content={'# 第001章\n\n雨停了。\n林照抬头。'} />);
+    rerender(<DocumentEditor {...baseProps} content={'# 第001章\n\n场景变化甲。\n角色甲动作甲。'} />);
 
-    expect(screen.getByText('正文 9 字')).toBeInTheDocument();
+    expect(screen.getByText('正文 13 字')).toBeInTheDocument();
   });
 
   it('shows the narrative character count in readonly proposal preview', () => {
-    renderEditor({ readOnly: true, content: '# 提案\n\n林照抬头。' });
+    renderEditor({ readOnly: true, content: '# 提案\n\n角色甲动作甲。' });
 
-    expect(screen.getByText('正文 5 字')).toBeInTheDocument();
+    expect(screen.getByText('正文 7 字')).toBeInTheDocument();
   });
 });

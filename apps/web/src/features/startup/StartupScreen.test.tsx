@@ -133,10 +133,10 @@ describe('StartupScreen', () => {
     expect(screen.getByRole('button', { name: '导入旧稿继续写' })).toBeInTheDocument();
   });
 
-  it('creates the fictional sample project and enters the workbench', async () => {
+  it('creates the workflow sample project and enters the workbench', async () => {
     vi.mocked(projectApi.createSampleProject).mockResolvedValue({
-      id: 'sample-lantern-road',
-      name: 'Lantern Road',
+      id: 'sample-workflow-sample',
+      name: 'Workflow Sample',
       rootPath: '/tmp/auctorforge-sample',
       lastModified: Date.now(),
       status: 'active',
@@ -150,8 +150,8 @@ describe('StartupScreen', () => {
 
     await waitFor(() => {
       expect(projectApi.createSampleProject).toHaveBeenCalledTimes(1);
-      expect(mockOnStart).toHaveBeenCalledWith('create', 'sample-lantern-road');
-      expect(screen.getByText('已选择项目 · Lantern Road')).toBeInTheDocument();
+      expect(mockOnStart).toHaveBeenCalledWith('create', 'sample-workflow-sample');
+      expect(screen.getByText('已选择项目 · Workflow Sample')).toBeInTheDocument();
     });
   });
 

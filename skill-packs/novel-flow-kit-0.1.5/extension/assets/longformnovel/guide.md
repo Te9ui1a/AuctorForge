@@ -43,7 +43,7 @@ description: Flexible entry point for the workflow. Supports importing existing 
 | 故事梗概、核心脑洞 | `2-设定/2.1_创意脑暴.md` | Ideation |
 | 世界观、地图、等级体系 | `2-设定/2.2_新书设定案.md` | Ideation |
 | 角色介绍、人物小传 | `2-设定/2.4_主要角色设定表.md` | Ideation |
-| 金手指、系统说明 | `2-设定/2.3_金手指设定.md` | Ideation |
+| 核心能力、资源说明 | `2-设定/2.3_金手指设定.md` | Ideation |
 | 分卷规划、细纲 | `3-大纲/` | Outline |
 | 正文稿件 | `4-正文/` | Write |
 

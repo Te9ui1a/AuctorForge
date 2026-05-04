@@ -1,14 +1,13 @@
 import type { BuiltPrompt } from './buildPrompt';
 import {
-  createAssistantApiKeyMissingError,
   createAssistantEmptyResponseError,
   createAssistantInvalidResponseError,
+  createAssistantModelRequiredError,
   createAssistantNetworkError,
   createAssistantUpstreamResponseError,
   isAssistantGenerationError,
   type AssistantProvider,
 } from './assistantErrors';
-import { buildLocalProposal } from './assistantLocalProposal';
 import { tryParseAssistantProposal } from './assistantProposalParsers';
 export type { AssistantProposal, ProposedWrite } from './assistantProposalTypes';
 import { resolvePreferredWritePaths } from './resolvePreferredWritePaths';
@@ -26,7 +25,6 @@ type GenerateAssistantReplyOptions = Pick<BuiltPrompt, 'systemPrompt' | 'userPro
   projectFiles: BuiltPrompt['projectFiles'];
   workflowDocs: BuiltPrompt['workflowDocs'];
   modelConfig?: ModelConfig;
-  allowLocalFallback?: boolean;
   requestTimeoutMs?: number;
 };
 
@@ -112,7 +110,7 @@ function buildAssistantRuntimeInstructions({
     instructions.push(
       '严格执行去 AI 味约束。写正文时必须主动规避黑名单词汇、套路化句式、翻译腔和解释性总结。',
       '严禁使用黑名单词汇和套路化句式；如需表达情绪，优先用动作、环境和对话承载，不要直接下判断。',
-      '每章正文必须写到3000-3500字；低于3000字视为未完成章节，超过3500字视为失控扩写，不要用摘要、章纲或场景梗概冒充正文。',
+      '每章正文必须至少写到2800字；低于2800字视为未完成章节，不要用摘要、章纲或场景梗概冒充正文。',
       '比喻句必须克制，每章只保留极少数真正必要的比喻，禁止连续堆砌“仿佛、宛如、像……”式修辞。',
       '禁止“不仅……而且……”式否定排比，避免三段式排比、空泛拔高、模糊归因和过度连接词。',
       '不要写金句式总结，也不要在段尾用漂亮废话替读者概括主题。',
@@ -146,16 +144,13 @@ function buildAssistantRuntimeInstructions({
 export async function generateAssistantReply({
   systemPrompt,
   userPrompt,
-  stepTitle,
   module,
   allowedWrites,
   strictWorkflowWrites,
   chatAllowedWrites,
   activeDocumentPath,
   projectFiles,
-  workflowDocs,
   modelConfig,
-  allowLocalFallback = true,
   requestTimeoutMs = DEFAULT_ASSISTANT_REQUEST_TIMEOUT_MS,
 }: GenerateAssistantReplyOptions) {
   const strictWrites = strictWorkflowWrites ?? allowedWrites;
@@ -174,27 +169,11 @@ export async function generateAssistantReply({
     effectiveChatAllowedWrites,
     projectFiles,
   });
-  const buildFallbackProposal = () => buildLocalProposal({
-    stepTitle,
-    module,
-    strictWorkflowWrites: strictWrites,
-    chatAllowedWrites: effectiveChatAllowedWrites,
-    preferredWritePaths: explicitPreferredWritePaths,
-    userPrompt,
-    projectFiles,
-    workflowDocs,
-  });
-  const hasExplicitModelConfig = modelConfig !== undefined;
-  const canUseLocalFallbackForModelFailure = allowLocalFallback && !hasExplicitModelConfig;
   const apiKey = modelConfig?.apiKey || process.env.NOVEL_FLOW_API_KEY || process.env.OPENAI_API_KEY;
   const provider: AssistantProvider = modelConfig?.provider === 'gemini-native' ? 'gemini-native' : 'openai-compatible';
 
   if (!apiKey) {
-    if (!allowLocalFallback || hasExplicitModelConfig) {
-      throw createAssistantApiKeyMissingError();
-    }
-
-    return buildFallbackProposal();
+    throw createAssistantModelRequiredError();
   }
 
   const baseUrl = modelConfig?.baseUrl || process.env.NOVEL_FLOW_API_BASE || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
@@ -238,28 +217,16 @@ export async function generateAssistantReply({
       const content = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim();
 
       if (!content) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantEmptyResponseError({ provider });
       }
 
       const parsed = tryParseAssistantProposal(content);
       if (!parsed) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantInvalidResponseError({ provider });
       }
 
       const proposedWrites = filterAssistantProposedWrites(parsed.proposedWrites, effectiveChatAllowedWrites);
       if (shouldFallBackForMissingStageWrite({ module, strictWrites, explicitPreferredWritePaths, proposedWrites })) {
-        if (canUseLocalFallbackForModelFailure) {
-          return buildFallbackProposal();
-        }
-
         throw createAssistantInvalidResponseError({ provider });
       }
 
@@ -299,28 +266,16 @@ export async function generateAssistantReply({
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantEmptyResponseError({ provider });
     }
 
     const parsed = tryParseAssistantProposal(content);
     if (!parsed) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantInvalidResponseError({ provider });
     }
 
     const proposedWrites = filterAssistantProposedWrites(parsed.proposedWrites, effectiveChatAllowedWrites);
     if (shouldFallBackForMissingStageWrite({ module, strictWrites, explicitPreferredWritePaths, proposedWrites })) {
-      if (canUseLocalFallbackForModelFailure) {
-        return buildFallbackProposal();
-      }
-
       throw createAssistantInvalidResponseError({ provider });
     }
 
@@ -331,10 +286,6 @@ export async function generateAssistantReply({
   } catch (error) {
     if (isAssistantGenerationError(error)) {
       throw error;
-    }
-
-    if (canUseLocalFallbackForModelFailure) {
-      return buildFallbackProposal();
     }
 
     throw createAssistantNetworkError({ provider, cause: error });

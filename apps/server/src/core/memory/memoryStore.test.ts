@@ -28,16 +28,16 @@ describe('memoryStore', () => {
 
     const entry: ChapterMemoryEntry = {
       chapterNumber: 1,
-      title: '夜雨来信',
-      summary: '林照在夜雨里接到一封信。',
-      time: '子时',
-      location: '城南旧巷',
-      activeCharacters: ['林照'],
+      title: '待填写第001章标题',
+      summary: '角色甲在场景甲里接到一封信。',
+      time: '时间甲',
+      location: '地点甲',
+      activeCharacters: ['角色甲'],
       objects: [],
-      hooksOpened: ['神秘信件'],
+      hooksOpened: ['线索甲'],
       hooksResolved: [],
-      facts: ['林照收到信件'],
-      evidence: [{ path: '4-正文/第001章_草稿.md', chapterNumber: 1, quote: '林照在夜雨里接到一封信。' }],
+      facts: ['角色甲收到信件'],
+      evidence: [{ path: '4-正文/第001章_草稿.md', chapterNumber: 1, quote: '角色甲在场景甲里接到一封信。' }],
       contentHash: 'hash-1',
       updatedAt: '2026-04-27T00:00:00.000Z',
     };
@@ -52,15 +52,15 @@ describe('memoryStore', () => {
   it('upserts structured entity state through the JSON store', async () => {
     const workspaceRoot = await makeWorkspace();
     const entities: Record<string, EntityMemory> = {
-      'character:林照': {
-        id: 'character:林照',
+      'character:角色甲': {
+        id: 'character:角色甲',
         kind: 'character',
-        name: '林照',
-        aliases: ['林师兄'],
+        name: '角色甲',
+        aliases: ['角色甲别名'],
         status: 'active',
         firstSeenChapter: 1,
         lastSeenChapter: 2,
-        evidence: [{ path: '4-正文/第002章_草稿.md', chapterNumber: 2, quote: '林照抬头。' }],
+        evidence: [{ path: '4-正文/第002章_草稿.md', chapterNumber: 2, quote: '角色甲动作甲。' }],
         updatedAt: '2026-04-27T00:00:00.000Z',
       },
     };

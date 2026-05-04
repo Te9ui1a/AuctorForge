@@ -30,6 +30,10 @@ export function chapterDraftPath(chapterNumber: number) {
   return `4-正文/${chapterLabel(chapterNumber)}_草稿.md`;
 }
 
+export function chapterFinalPath(chapterNumber: number) {
+  return `4-正文/${chapterLabel(chapterNumber)}_定稿.md`;
+}
+
 export function chapterReviewPath(chapterNumber: number) {
   return `5-审查/${chapterLabel(chapterNumber)}_审查报告.md`;
 }

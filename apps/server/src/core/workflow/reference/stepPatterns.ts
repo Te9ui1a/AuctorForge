@@ -15,6 +15,7 @@ import {
   VOLUME_CHAPTER_OUTLINE_PATH,
   VOLUME_OUTLINE_PATH,
   chapterDraftPath,
+  chapterFinalPath,
   chapterReviewPath,
 } from '../../paths/projectPaths';
 import { DEFAULT_VOLUME_NUMBER } from '../../paths/volumeContext';
@@ -144,6 +145,7 @@ const moduleFactories: Record<WorkflowModuleReference['module'], ModuleFactory> 
   write: ({ entryPath }) =>
     step('write-chapter', 'write', '单章正文写作', entryPath, 'chapter-draft', [
       substep('chapter-draft', '章节草稿', [STYLE_GUIDE_PATH, MICRO_RHYTHM_PATH, SETTING_SUMMARY_PATH, CHEAT_SETTING_PATH, MASTER_CONSTITUTION_PATH, MASTER_OUTLINE_PATH, VOLUME_OUTLINE_PATH(DEFAULT_VOLUME_NUMBER), VOLUME_CHAPTER_OUTLINE_PATH(DEFAULT_VOLUME_NUMBER), CHARACTER_MEMORY_PATH, FORESHADOWING_MEMORY_PATH, `4-正文/${PREVIOUS_CHAPTER_TOKEN}草稿.md`, chapterReviewPath(1), CONTROL_PANEL_PATH], [chapterDraftPath(1), CHARACTER_MEMORY_PATH, FORESHADOWING_MEMORY_PATH, CONTROL_PANEL_PATH], true, 'proposal_approval', { stepId: 'review-chapter', substepId: 'chapter-review', mode: 'standard' }),
+      substep('chapter-finalize', '章节定稿', [CONTROL_PANEL_PATH, chapterDraftPath(1), chapterReviewPath(1), STYLE_GUIDE_PATH, MASTER_CONSTITUTION_PATH], [chapterDraftPath(1), chapterFinalPath(1), CONTROL_PANEL_PATH], true, 'proposal_approval', { stepId: 'write-chapter', substepId: 'chapter-pause', mode: 'standard' }),
       substep('chapter-pause', '单章收束', [CONTROL_PANEL_PATH, chapterDraftPath(1), chapterReviewPath(1)], [CONTROL_PANEL_PATH], false, null, null),
     ]),
   review: ({ entryPath }) =>

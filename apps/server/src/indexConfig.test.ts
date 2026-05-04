@@ -4,9 +4,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('server entry config', () => {
-  it('disables local proposal fallback for the running WebUI server', () => {
+  it('does not configure the removed proposal backup option for the running WebUI server', () => {
     const source = readFileSync(resolve(__dirname, 'index.ts'), 'utf8');
+    const removedOptionName = ['disable', 'Local', 'Proposal', 'Fallback'].join('');
 
-    expect(source).toMatch(/disableLocalProposalFallback:\s*true/);
+    expect(source).not.toContain(removedOptionName);
   });
 });

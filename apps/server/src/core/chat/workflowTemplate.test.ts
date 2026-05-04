@@ -141,6 +141,7 @@ describe('extractTemplateSections', () => {
       '沉浸感 (Immersion)',
       '情绪调动 (Emotion)',
       '文风与红线 (Style & Constraints)',
+      '连续性硬校验 (Continuity Gate)',
     ]);
   });
 });

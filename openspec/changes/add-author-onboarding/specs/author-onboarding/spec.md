@@ -22,7 +22,7 @@ The system SHALL provide a sample-project entry point that opens a fictional pro
 #### Scenario: User starts with sample content
 
 - **WHEN** a user chooses the sample-project entry point
-- **THEN** the system creates or opens a fictional sample project
+- **THEN** the system creates or opens a workflow sample project
 - **AND** routes the user into the workbench for that project.
 
 #### Scenario: Sample content avoids private or third-party text

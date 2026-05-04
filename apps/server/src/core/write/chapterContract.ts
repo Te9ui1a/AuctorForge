@@ -1,8 +1,8 @@
 import { normalizeProjectPath } from '../compat/rules';
 import type { ProposedWrite } from '../chat/assistantProposalTypes';
-import { ROLE_TABLE_PATH, VOLUME_CHAPTER_OUTLINE_PATH, chapterDraftPath, chapterLabel } from '../paths/projectPaths';
+import { ROLE_TABLE_PATH, chapterDraftPath, chapterLabel } from '../paths/projectPaths';
 import { DEFAULT_VOLUME_NUMBER } from '../paths/volumeContext';
-import { lintAiFlavor } from './aiFlavorLint';
+import { assessChapterContinuity, formatChapterContinuityFindings } from './chapterContinuityGate';
 import { parseChapterNumberFromDraftPath, resolveChapterPlanFromProjectFiles } from './chapterPlanResolver';
 
 type OutlineChapter = {
@@ -18,15 +18,13 @@ export type ChapterDraftValidationCode =
   | 'chapter-draft-heading-mismatch'
   | 'chapter-draft-title-mismatch'
   | 'chapter-draft-too-short'
-  | 'chapter-draft-ai-flavor'
   | 'chapter-draft-early-finale'
   | 'chapter-draft-context-drift'
-  | 'chapter-draft-too-long';
+  | 'chapter-draft-continuity-revise';
 
 const EARLY_FINALE_PATTERN = /(大结局|终章|完结章|最终章|全书完|故事完结)/u;
 export const TARGET_CHAPTER_DRAFT_NARRATIVE_CHARS = 3200;
-export const MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 3000;
-export const MAX_CHAPTER_DRAFT_NARRATIVE_CHARS = 3500;
+export const MIN_CHAPTER_DRAFT_NARRATIVE_CHARS = 2800;
 
 export function parseOutlineChapters(chapterOutline: string): OutlineChapter[] {
   return chapterOutline
@@ -137,16 +135,7 @@ export function validateChapterDraftProposal(options: {
     return {
       ok: false,
       code: 'chapter-draft-too-short',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿字数不足：当前正文约 ${narrativeChars} 字，必须写到${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}-${MAX_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请扩写为完整正文。`,
-    } as const;
-  }
-
-  const lint = lintAiFlavor(draftWrite.content);
-  if (lint.blocked) {
-    return {
-      ok: false,
-      code: 'chapter-draft-ai-flavor',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿AI味过重：命中${lint.hits.map((hit) => hit.label).join('、')}，请清理禁词和套路化表达后重新生成。`,
+      message: `${chapterLabel(options.currentChapterNumber)}草稿字数不足：当前正文约 ${narrativeChars} 字，必须至少${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请扩写为完整正文。`,
     } as const;
   }
 
@@ -171,11 +160,19 @@ export function validateChapterDraftProposal(options: {
     } as const;
   }
 
-  if (narrativeChars > MAX_CHAPTER_DRAFT_NARRATIVE_CHARS) {
+  const continuity = assessChapterContinuity({
+    currentChapterNumber: options.currentChapterNumber,
+    draftContent: draftWrite.content,
+    previousChapterSummary: findPreviousChapterContent(options.projectFiles, options.currentChapterNumber),
+    currentPlan: expectedChapter,
+    futurePlans: chapterPlanResolution.chapters.filter((chapter) => chapter.number > options.currentChapterNumber),
+  });
+  if (continuity.verdict === 'revise') {
+    const findingText = formatChapterContinuityFindings(continuity.findings);
     return {
       ok: false,
-      code: 'chapter-draft-too-long',
-      message: `${chapterLabel(options.currentChapterNumber)}草稿字数超出：当前正文约 ${narrativeChars} 字，目标为${MIN_CHAPTER_DRAFT_NARRATIVE_CHARS}-${MAX_CHAPTER_DRAFT_NARRATIVE_CHARS}字，请压缩为完整但克制的正文。`,
+      code: 'chapter-draft-continuity-revise',
+      message: `${chapterLabel(options.currentChapterNumber)}草稿连续性未通过：提前消费后续章纲或资源升级异常。${findingText}，请回到本章章纲范围内重写。`,
     } as const;
   }
 
@@ -213,18 +210,19 @@ function validateProjectContextConsistency({
     return null;
   }
 
-  const leakedOldFallbackTerms = ['陈渊', '毒蛇帮', '棚户区', '黑水仓', '刘三']
-    .filter((term) => draftContent.includes(term) && !contextText.includes(term));
-
-  if (leakedOldFallbackTerms.length > 0) {
-    return `出现了当前设定中不存在的旧模板词：${leakedOldFallbackTerms.join('、')}`;
-  }
-
   if (!roleNames.some((name) => draftContent.includes(name))) {
     return `正文没有使用角色表中的核心角色：${roleNames.slice(0, 3).join('、')}`;
   }
 
   return null;
+}
+
+function findPreviousChapterContent(projectFiles: Array<{ path: string; content: string | null }>, currentChapterNumber: number) {
+  if (currentChapterNumber <= 1) {
+    return '';
+  }
+
+  return projectFiles.find((file) => normalizeProjectPath(file.path) === chapterDraftPath(currentChapterNumber - 1))?.content ?? '';
 }
 
 function extractRoleNames(roleTable: string) {
