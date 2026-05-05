@@ -273,10 +273,12 @@ function buildAutoProposedWrites(promptText: string, targetPath: string) {
   }
 
   if (targetPath === '2-设定/2.1_创意脑暴.md') {
+    const storySeed = extractLatestDiscussionNote(promptText) ?? extractUserMessage(promptText);
+
     return [
       {
         path: targetPath,
-        content: `# 套路方向与核心设定\n\n## 1. 核心梗 (Core Premise)\n角色甲围绕主题甲完成长期目标。\n\n## 用户补充\n${extractUserMessage(promptText)}`,
+        content: `# 套路方向与核心设定\n\n## 1. 核心梗 (Core Premise)\n角色甲围绕主题甲完成长期目标。\n\n## 用户补充\n${storySeed}`,
       },
       {
         path: '1-边界/1.2_文风.md',
@@ -428,6 +430,16 @@ function buildAutoReview(targetPath: string) {
 
 function extractUserMessage(promptText: string) {
   return promptText.match(/用户消息：([^\n]+)/u)?.[1] ?? '测试提案';
+}
+
+function extractLatestDiscussionNote(promptText: string) {
+  const section = promptText.match(/### 最近讨论记录\n([\s\S]*?)(?:\n\n### |$)/u)?.[1] ?? '';
+  const notes = section
+    .split('\n')
+    .map((line) => line.trim().replace(/^\d+\.\s*/u, ''))
+    .filter((line) => line.length > 0);
+
+  return notes.at(-1) ?? null;
 }
 
 async function approveWithMode(app: FastifyInstance, message: string, options: ChatTurnOptions) {
@@ -5495,9 +5507,14 @@ describe('createApp', () => {
     expect(proposalResponse.statusCode).toBe(200);
     expect(JSON.parse(proposalResponse.body)).toMatchObject({
       pendingProposal: {
+        id: expect.any(String),
+        version: 1,
+        status: 'pending',
+        title: expect.any(String),
+        kind: 'multi-file',
         proposedWrites: [
-          { path: '2-设定/2.1_创意脑暴.md' },
-          { path: '1-边界/1.2_文风.md' },
+          { path: '2-设定/2.1_创意脑暴.md', label: '2.1_创意脑暴.md' },
+          { path: '1-边界/1.2_文风.md', label: '1.2_文风.md' },
         ],
       },
       session: {
@@ -5554,6 +5571,206 @@ describe('createApp', () => {
     await expect(readFile(path.join(workspaceRoot, 'PROJECT.md'), 'utf8')).resolves.toContain(
       '-> 1-边界/1.2_文风.md',
     );
+
+    await app.close();
+  });
+
+  it('rejects approval actions that target a stale proposal id', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个苟道修仙的长篇故事。');
+
+    const proposalResponse = await propose(app, '生成一版创意脑暴草案');
+    const proposalPayload = JSON.parse(proposalResponse.body) as {
+      pendingProposal: { id: string };
+    };
+
+    expect(proposalPayload.pendingProposal.id).toBeTruthy();
+
+    const staleApprovalResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '确认写入',
+        approved: true,
+        proposalAction: {
+          type: 'approve',
+          proposalId: 'proposal-not-current',
+        },
+      },
+    });
+
+    expect(staleApprovalResponse.statusCode).toBe(200);
+    expect(JSON.parse(staleApprovalResponse.body)).toMatchObject({
+      reply: expect.stringContaining('不再是当前提案'),
+      pendingProposal: {
+        id: proposalPayload.pendingProposal.id,
+      },
+    });
+
+    await expect(
+      readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
+    ).resolves.toContain('占位模板');
+
+    await app.close();
+  });
+
+  it('approves a matching proposal action payload and writes the pending proposal', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个苟道修仙的长篇故事。');
+
+    const proposalResponse = await propose(app, '生成一版创意脑暴草案');
+    const proposalPayload = JSON.parse(proposalResponse.body) as {
+      pendingProposal: { id: string };
+    };
+
+    const approvedResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '确认写入当前提案',
+        approved: true,
+        proposalAction: {
+          type: 'approve',
+          proposalId: proposalPayload.pendingProposal.id,
+        },
+      },
+    });
+
+    expect(approvedResponse.statusCode).toBe(200);
+    expect(JSON.parse(approvedResponse.body)).toMatchObject({
+      pendingProposal: null,
+      session: {
+        waitingForApproval: false,
+      },
+    });
+    await expect(
+      readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
+    ).resolves.toContain('苟道修仙');
+
+    await app.close();
+  });
+
+  it('discards a matching proposal action payload without writing files', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个苟道修仙的长篇故事。');
+
+    const proposalResponse = await propose(app, '生成一版创意脑暴草案');
+    const proposalPayload = JSON.parse(proposalResponse.body) as {
+      pendingProposal: { id: string };
+    };
+
+    const discardResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '放弃当前提案',
+        approved: false,
+        proposalAction: {
+          type: 'discard',
+          proposalId: proposalPayload.pendingProposal.id,
+        },
+      },
+    });
+
+    expect(discardResponse.statusCode).toBe(200);
+    expect(JSON.parse(discardResponse.body)).toMatchObject({
+      reply: expect.stringContaining('已放弃当前提案'),
+      pendingProposal: null,
+      session: {
+        waitingForApproval: false,
+      },
+    });
+    await expect(
+      readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
+    ).resolves.toContain('占位模板');
+
+    await app.close();
+  });
+
+  it('generates a new proposal version for revision action payloads', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个苟道修仙的长篇故事。');
+
+    const proposalResponse = await propose(app, '生成一版创意脑暴草案');
+    const proposalPayload = JSON.parse(proposalResponse.body) as {
+      pendingProposal: { id: string };
+    };
+
+    const revisionResponse = await injectWithAutoModel(app, {
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '改一下：不要源血设定',
+        approved: false,
+        proposalAction: {
+          type: 'revise',
+          proposalId: proposalPayload.pendingProposal.id,
+          instructions: '改一下：不要源血设定',
+        },
+      },
+    });
+
+    expect(revisionResponse.statusCode).toBe(200);
+    expect(JSON.parse(revisionResponse.body)).toMatchObject({
+      pendingProposal: {
+        id: expect.any(String),
+        version: 2,
+        status: 'pending',
+      },
+      session: {
+        waitingForApproval: true,
+      },
+    });
+    expect((JSON.parse(revisionResponse.body) as { pendingProposal: { id: string } }).pendingProposal.id).not.toBe(
+      proposalPayload.pendingProposal.id,
+    );
+    await expect(
+      readFile(path.join(workspaceRoot, '2-设定', '2.1_创意脑暴.md'), 'utf8'),
+    ).resolves.toContain('占位模板');
+
+    await app.close();
+  });
+
+  it('guards ambiguous continue messages while a proposal is pending', async () => {
+    const workspaceRoot = await makeWorkspace();
+    const app = createApp({ projectRoot: workspaceRoot, skillPackPath });
+
+    await app.inject({ method: 'POST', url: '/api/workspace/init' });
+    await propose(app, '我想写一个苟道修仙的长篇故事。');
+
+    const proposalResponse = await propose(app, '生成一版创意脑暴草案');
+    const proposalPayload = JSON.parse(proposalResponse.body) as {
+      pendingProposal: { id: string };
+    };
+
+    const continueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        message: '继续',
+        approved: false,
+      },
+    });
+
+    expect(continueResponse.statusCode).toBe(200);
+    expect(JSON.parse(continueResponse.body)).toMatchObject({
+      reply: expect.stringContaining('当前有待确认提案'),
+      pendingProposal: {
+        id: proposalPayload.pendingProposal.id,
+      },
+    });
 
     await app.close();
   });

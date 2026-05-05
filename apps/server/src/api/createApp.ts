@@ -87,6 +87,7 @@ import {
   normalizeRequestId,
   type ChatMode,
   type ChatTurnBody,
+  type ProposalAction,
 } from './chatRouteHelpers';
 import { createChatTurnService, type ChatTurnServiceHandler } from './chatTurnService';
 import { createProposalApprovalService } from './proposalApprovalService';
@@ -102,6 +103,11 @@ type CreateAppOptions = {
 const projectSessionWriteQueues = new Map<string, Promise<void>>();
 
 type PendingProposal = {
+  id: string;
+  version: number;
+  status: 'pending' | 'superseded' | 'approved' | 'discarded' | 'invalidated';
+  title: string;
+  kind: 'single-file' | 'multi-file';
   reply: string;
   sourceReads: Array<{
     path: string;
@@ -110,8 +116,14 @@ type PendingProposal = {
   proposedWrites: Array<{
     path: string;
     content: string;
+    label: string;
     baseHash: string | null;
   }>;
+  transitionPreview?: {
+    afterApproveLabel: string;
+    nextStepTitle?: string;
+    nextActionLabel?: string;
+  };
   nextTarget?: WorkflowTransitionTarget | null;
   returnTarget?: WorkflowReturnTarget | null;
 };
@@ -152,6 +164,7 @@ type ChatTurnContext = {
   activeDocumentPath: string | null;
   attachments: ChatAttachment[];
   routeReply: FastifyReply;
+  proposalAction?: ProposalAction;
 };
 
 type ChatStreamProgressPhase =
@@ -220,6 +233,7 @@ export function createApp({
   const workflowSnapshotsBeforeTurn = new WeakMap<ChatTurnContext, string | null>();
   const chatStreamProgressReporters = new Map<string, ChatStreamProgressReporter>();
   const commandHandlers: Array<ChatTurnServiceHandler<ChatTurnContext, unknown>> = [
+    { name: 'proposal-action', handle: handleProposalActionCommand },
     { name: 'approval', handle: handleApprovalCommand },
     { name: 'progress-summary', handle: handleProgressSummaryCommand },
     { name: 'chapter-finalization', handle: handleChapterFinalizationCommand },
@@ -251,6 +265,7 @@ export function createApp({
         chatMode: rawChatMode,
         activeDocumentPath = null,
         attachments = [],
+        proposalAction,
       } = body;
       const chatMode = normalizeChatMode(rawChatMode);
 
@@ -262,6 +277,7 @@ export function createApp({
         isPlanMode: chatMode === 'plan',
         activeDocumentPath,
         attachments,
+        proposalAction,
         routeReply,
       };
     },
@@ -1235,6 +1251,73 @@ export function createApp({
     return chatTurnService.run(state, getChatRequestProjectKey(request), request.body, routeReply);
   });
 
+  function handleProposalActionCommand({
+    message,
+    proposalAction,
+    attachments,
+    activeDocumentPath,
+    routeReply,
+    isPlanMode,
+  }: ChatTurnContext) {
+    if (isPlanMode || !proposalAction) {
+      return null;
+    }
+
+    const proposalMismatchResponse = validateProposalActionTarget(proposalAction.proposalId);
+    if (proposalMismatchResponse !== null) {
+      return proposalMismatchResponse;
+    }
+
+    if (proposalAction.type === 'approve') {
+      return handleApprovalTurn({ message: message || '确认写入', approved: true, proposalId: proposalAction.proposalId });
+    }
+
+    if (proposalAction.type === 'discard') {
+      getRuntimeState().pendingProposal = null;
+      getRuntimeState().pendingDecision = null;
+
+      return {
+        reply: '已放弃当前提案，项目文件没有变化。',
+        session: buildSessionResponse(),
+        pendingDecision: null,
+        pendingProposal: null,
+      };
+    }
+
+    if (proposalAction.type === 'revise') {
+      const currentStep = getCurrentStep();
+      const previousProposal = getRuntimeState().pendingProposal;
+      getRuntimeState().discussionBuffer.remember(currentStep, proposalAction.instructions);
+      getRuntimeState().pendingProposal = null;
+      getRuntimeState().pendingDecision = null;
+
+      return generateAssistantProposalTurn({
+        userMessage: proposalAction.instructions,
+        attachments,
+        activeDocumentPath,
+        routeReply,
+        previousProposal,
+      });
+    }
+
+    return null;
+  }
+
+  function validateProposalActionTarget(proposalId: string) {
+    const currentProposal = getRuntimeState().pendingProposal;
+
+    if (!currentProposal || currentProposal.id !== proposalId || currentProposal.status !== 'pending') {
+      return {
+        reply: '这个提案不再是当前提案，未写入任何文件。请查看当前待确认提案后再操作。',
+        session: buildSessionResponse(),
+        pendingDecision: getRuntimeState().pendingDecision,
+        pendingProposal: currentProposal,
+      };
+    }
+
+    return null;
+  }
+
   function handleApprovalCommand({ message, approved, isPlanMode }: ChatTurnContext) {
     const treatAsApproval =
       !isPlanMode
@@ -1588,6 +1671,15 @@ export function createApp({
   ) {
     const currentStep = getCurrentStep();
 
+    if (getRuntimeState().pendingProposal && isAmbiguousContinueMessage(message)) {
+      return {
+        reply: '当前有待确认提案，先查看、修改、确认写入或放弃它，再继续推进。',
+        session: buildSessionResponse(),
+        pendingDecision: getRuntimeState().pendingDecision,
+        pendingProposal: getRuntimeState().pendingProposal,
+      };
+    }
+
     if (isRegenerateIntent(message)) {
       getRuntimeState().discussionBuffer.remember(currentStep, message);
       getRuntimeState().pendingProposal = null;
@@ -1697,7 +1789,7 @@ export function createApp({
 
     const state = getRuntimeState();
     state.pendingDecision = null;
-    state.pendingProposal = await snapshotProposal(state.projectRoot, proposal.sourceReadPaths, proposal);
+    state.pendingProposal = await snapshotProposal(state.projectRoot, proposal.sourceReadPaths, proposal, state.pendingProposal);
     const pendingProposal = state.pendingProposal;
 
     return {
@@ -1950,9 +2042,11 @@ export function createApp({
   async function handleApprovalTurn({
     message,
     approved,
+    proposalId,
   }: {
     message: string;
     approved: boolean;
+    proposalId?: string;
   }) {
       if (approved && !isExplicitApprovalMessage(message)) {
         return {
@@ -1978,6 +2072,26 @@ export function createApp({
       if (!approvedProposal) {
         return {
           reply: '当前没有待确认的写入提案。请重新描述你的需求，我会重新生成。',
+          session: buildSessionResponse(),
+          pendingDecision: null,
+          pendingProposal: null,
+        };
+      }
+
+      if (proposalId !== undefined && approvedProposal.id !== proposalId) {
+        return {
+          reply: '这个提案不再是当前提案，未写入任何文件。请查看当前待确认提案后再操作。',
+          session: buildSessionResponse(),
+          pendingDecision: getRuntimeState().pendingDecision,
+          pendingProposal: approvedProposal,
+        };
+      }
+
+      if (approvedProposal.status !== 'pending') {
+        getRuntimeState().pendingProposal = null;
+        getRuntimeState().pendingDecision = null;
+        return {
+          reply: '当前提案已经不处于待确认状态，未写入任何文件。请重新生成提案。',
           session: buildSessionResponse(),
           pendingDecision: null,
           pendingProposal: null,
@@ -2300,7 +2414,7 @@ export function createApp({
     if (proposal.proposedWrites.length > 0) {
       const state = getRuntimeState();
       state.pendingDecision = null;
-      state.pendingProposal = await snapshotProposal(state.projectRoot, proposal.sourceReadPaths, proposal);
+      state.pendingProposal = await snapshotProposal(state.projectRoot, proposal.sourceReadPaths, proposal, state.pendingProposal);
       const pendingProposal = state.pendingProposal;
 
       return {
@@ -2382,6 +2496,7 @@ export function createApp({
     stepTitle,
     requiredProjectReads,
     returnTarget,
+    previousProposal,
   }: {
     userMessage: string;
     attachments: Array<{ name: string; mimeType: string; size: number; textContent: string }>;
@@ -2390,6 +2505,7 @@ export function createApp({
     stepTitle?: string;
     requiredProjectReads?: string[];
     returnTarget?: WorkflowReturnTarget | null;
+    previousProposal?: PendingProposal | null;
   }) {
     const writePolicy = getCurrentWritePolicy(activeDocumentPath);
     reportChatStreamPhase('building_prompt');
@@ -2450,7 +2566,7 @@ export function createApp({
     state.pendingProposal = await snapshotProposal(state.projectRoot, requiredProjectReads ?? prompt.step.requiredProjectReads, {
       ...reply,
       ...(returnTarget !== undefined ? { returnTarget } : {}),
-    });
+    }, previousProposal ?? state.pendingProposal);
     state.pendingDecision = null;
     const pendingProposal = state.pendingProposal;
 
@@ -2837,6 +2953,7 @@ async function snapshotProposal(
   projectRoot: string,
   requiredProjectReads: string[],
   proposal: Awaited<ReturnType<typeof generateAssistantReply>> & { nextTarget?: WorkflowTransitionTarget | null; returnTarget?: WorkflowReturnTarget | null },
+  previousProposal: PendingProposal | null = null,
 ): Promise<PendingProposal> {
   const sourceReads = await Promise.all(
     requiredProjectReads.map(async (relativePath) => {
@@ -2855,18 +2972,47 @@ async function snapshotProposal(
 
       return {
         ...proposedWrite,
+        label: proposedWrite.path.split('/').pop() ?? proposedWrite.path,
         baseHash: currentContent === null ? null : hashContent(currentContent),
       };
     }),
   );
+  const version = previousProposal ? previousProposal.version + 1 : 1;
+  const kind = proposedWrites.length > 1 ? 'multi-file' : 'single-file';
+  const title = buildProposalTitle(proposedWrites.map((item) => item.path));
 
   return {
+    id: `proposal-${randomUUID()}`,
+    version,
+    status: 'pending',
+    title,
+    kind,
     reply: sanitizePendingProposalReply(proposal.reply),
     sourceReads,
     proposedWrites,
+    transitionPreview: {
+      afterApproveLabel: '下一流程节点',
+    },
     nextTarget: proposal.nextTarget,
     returnTarget: proposal.returnTarget,
   };
+}
+
+function buildProposalTitle(paths: string[]) {
+  if (paths.length === 0) {
+    return '当前提案';
+  }
+
+  if (paths.length === 1) {
+    return paths[0].split('/').pop() ?? paths[0];
+  }
+
+  const outlineCount = paths.filter((item) => item.startsWith('3-大纲/')).length;
+  if (outlineCount === paths.length) {
+    return '大纲规划';
+  }
+
+  return `提案包 · ${paths.length} 个文件`;
 }
 
 function hashContent(content: string) {
@@ -2905,7 +3051,7 @@ function isCachedChatErrorPayload(value: unknown) {
 }
 
 function isExplicitApprovalMessage(message: string) {
-  return /^\s*(确认|同意|批准|写入)(?=$|[\s，。,！!])/u.test(message);
+  return /(^\s*(确认|同意|批准|写入)(?:写入)?(?:当前提案|这个提案|这些内容)?(?=$|[\s，。,！!]))|(满意.{0,8}确认|没问题|可以写入|确认.{0,8}写入|就这样|就这样吧)/u.test(message.trim());
 }
 
 function isGuideTrigger(message: string) {
@@ -2998,6 +3144,10 @@ function shouldHoldPendingInDiscussion(
 
 function isRegenerateIntent(message: string) {
   return /(重新生成|重生成|重来一版|再来一版|重新起草|重新产出|重新输出|重做一版|重新写|重写|替换当前|上一版作废|作废上一版)/u.test(message.trim());
+}
+
+function isAmbiguousContinueMessage(message: string) {
+  return /^(继续|下一步|往下|继续推进)$/u.test(message.trim());
 }
 
 function isChapterWriteStartIntent(message: string) {

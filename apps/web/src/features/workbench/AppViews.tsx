@@ -73,6 +73,7 @@ type AssistantPaneViewModel = {
   handleChatSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   handleContinueDiscussion: () => void;
   handleRemoveAttachment: (name: string) => void;
+  handleProposalAction: ComponentPropsWithoutRef<typeof ChatPanel>['onProposalAction'];
   handleRetryChat: () => void;
   isChatBusy: boolean;
   messages: ChatMessage[];
@@ -229,6 +230,7 @@ export function WorkbenchView({
     handleChatSubmit,
     handleContinueDiscussion,
     handleRemoveAttachment,
+    handleProposalAction,
     handleRetryChat,
     isChatBusy,
     messages,
@@ -394,7 +396,9 @@ export function WorkbenchView({
                   onContinueDiscussion={canContinueDiscussion ? handleContinueDiscussion : undefined}
                   chatError={chatError}
                   writeTargetHint={writeTargetHint}
+                  pendingProposal={assistantProgress?.pendingProposal}
                   proposalTargets={assistantProgress?.pendingProposal?.proposedWrites}
+                  onProposalAction={handleProposalAction}
                   onRetryChat={handleRetryChat}
                   onOpenSettings={onOpenAssistantSettings}
                 />

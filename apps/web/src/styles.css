@@ -910,12 +910,12 @@ button:not(:disabled),
 }
 
 [data-ui-surface='chat-panel'] [data-chat-surface='composer-shell'] {
-  padding: 10px var(--ui-assistant-log-padding-inline) 14px;
+  padding: 8px var(--ui-assistant-log-padding-inline) 12px;
 }
 
 [data-ui-surface='chat-panel'] [data-chat-surface='composer'] {
   display: grid;
-  row-gap: 10px;
+  row-gap: 8px;
 }
 
 [data-ui-surface='chat-panel'] [data-chat-surface='composer'] > :not([hidden]) ~ :not([hidden]) {
@@ -923,7 +923,14 @@ button:not(:disabled),
 }
 
 [data-ui-surface='chat-panel'] [data-chat-surface='composer-shell'] [data-chat-surface='input'] {
+  font-size: 14px;
+  line-height: 24px;
   min-height: var(--ui-assistant-resting-input-min-height);
+}
+
+[data-ui-surface='chat-panel'] [data-chat-surface='message-content'] {
+  font-size: 14px;
+  line-height: 24px;
 }
 
 [data-ui-surface='chat-panel'] [data-chat-surface='composer-frame'] {

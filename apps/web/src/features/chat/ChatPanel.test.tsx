@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ComponentProps } from 'react';
+import type { ComponentProps, FormEvent } from 'react';
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -612,22 +612,222 @@ describe('ChatPanel', () => {
 
     expect(screen.queryByTestId('chat-context-inline')).not.toBeInTheDocument();
     expect(screen.getByTestId('chat-proposal-notice')).toHaveTextContent('proposal-target.md');
+    expect(screen.getByTestId('chat-proposal-notice')).toHaveTextContent('尚未写入');
   });
 
-  it('keeps pending proposal confirmation conversational instead of rendering a composer approval button', () => {
+  it('keeps proposal actions inside the latest assistant message instead of the composer', () => {
     renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
       writeTargetHint: {
         activeDocumentPath: 'drafts/foo.md',
         strictWorkflowWrites: [],
         chatAllowedWrites: [],
         hasPendingProposal: true,
       },
-      proposalTargets: [{ path: 'drafts/proposal-target.md' }],
+      pendingProposal: {
+        id: 'proposal-1',
+        version: 2,
+        status: 'pending',
+        title: '第001章_草稿.md',
+        kind: 'single-file',
+        proposedWrites: [{ path: 'drafts/proposal-target.md', label: 'proposal-target.md' }],
+      },
     });
 
-    expect(screen.getByTestId('chat-proposal-notice')).toHaveTextContent('proposal-target.md');
+    expect(screen.getByTestId('chat-proposal-notice')).toHaveTextContent('第001章_草稿.md');
+    expect(screen.getByTestId('chat-proposal-notice')).toHaveTextContent('尚未写入');
+    expect(screen.getByRole('group', { name: '当前提案操作' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认写入提案' })).not.toHaveTextContent('确认写入');
+    expect(screen.getByRole('button', { name: '修改提案' })).not.toHaveTextContent('修改');
+    expect(screen.getByRole('button', { name: '放弃提案' })).not.toHaveTextContent('放弃');
+    expect(screen.getByTestId('chat-composer-frame')).not.toContainElement(
+      screen.getByRole('button', { name: '确认写入提案' }),
+    );
     expect(screen.queryByRole('button', { name: '确认写入当前提案' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '确认写入' })).not.toBeInTheDocument();
+  });
+
+  it('opens an inline approval confirmation inside the assistant message and confirms with the proposal id', () => {
+    const onSubmit = vi.fn((event: FormEvent<HTMLFormElement>) => event.preventDefault());
+    const onProposalAction = vi.fn();
+
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
+      chatInput: '满意，确认',
+      onSubmit,
+      onProposalAction,
+      writeTargetHint: {
+        activeDocumentPath: 'drafts/foo.md',
+        strictWorkflowWrites: [],
+        chatAllowedWrites: [],
+        hasPendingProposal: true,
+      },
+      pendingProposal: {
+        id: 'proposal-approve',
+        version: 2,
+        status: 'pending',
+        title: '第001章_草稿.md',
+        kind: 'single-file',
+        transitionPreview: {
+          afterApproveLabel: '单章收束',
+        },
+        proposedWrites: [{ path: 'drafts/proposal-target.md', label: 'proposal-target.md' }],
+      },
+    });
+
+    expect(screen.queryByRole('group', { name: '确认写入提案？' })).not.toBeInTheDocument();
+
+    fireEvent.submit(screen.getByRole('button', { name: '发送' }).closest('form')!);
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('group', { name: '确认写入提案？' })).toBeInTheDocument();
+    expect(screen.getByText('提案 v2，尚未写入')).toBeInTheDocument();
+    expect(screen.getByText('确认后进入：单章收束')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '确认写入当前提案' }));
+
+    expect(onProposalAction).toHaveBeenCalledWith({
+      type: 'approve',
+      proposalId: 'proposal-approve',
+    });
+  });
+
+  it('shows a multi-file proposal package inside the approval dialog', () => {
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
+      chatInput: '可以写入',
+      onSubmit: (event) => event.preventDefault(),
+      onProposalAction: vi.fn(),
+      writeTargetHint: {
+        activeDocumentPath: null,
+        strictWorkflowWrites: [],
+        chatAllowedWrites: [],
+        hasPendingProposal: true,
+      },
+      pendingProposal: {
+        id: 'proposal-pack',
+        version: 1,
+        status: 'pending',
+        title: '大纲规划',
+        kind: 'multi-file',
+        proposedWrites: [
+          { path: '3-大纲/3.1_全书结构总纲.md', label: '3.1_全书结构总纲.md' },
+          { path: '3-大纲/第01卷_完整卷纲.md', label: '第01卷_完整卷纲.md' },
+          { path: '3-大纲/第01卷_章纲.md', label: '第01卷_章纲.md' },
+        ],
+      },
+    });
+
+    fireEvent.submit(screen.getByRole('button', { name: '发送' }).closest('form')!);
+
+    expect(screen.getByText('大纲规划')).toBeInTheDocument();
+    expect(screen.getByText('3 个文件')).toBeInTheDocument();
+    expect(screen.getByText('3-大纲/3.1_全书结构总纲.md')).toBeInTheDocument();
+    expect(screen.getByText('3-大纲/第01卷_完整卷纲.md')).toBeInTheDocument();
+    expect(screen.getByText('3-大纲/第01卷_章纲.md')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认写入 3 个文件' })).not.toHaveTextContent('确认写入');
+  });
+
+  it('does not duplicate the file count when the proposal title already contains it', () => {
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
+      writeTargetHint: {
+        activeDocumentPath: null,
+        strictWorkflowWrites: [],
+        chatAllowedWrites: [],
+        hasPendingProposal: true,
+      },
+      pendingProposal: {
+        id: 'proposal-pack-title',
+        version: 1,
+        status: 'pending',
+        title: '提案包 · 2 个文件',
+        kind: 'multi-file',
+        proposedWrites: [
+          { path: '2-设定/2.1_创意脑暴.md', label: '2.1_创意脑暴.md' },
+          { path: '1-边界/1.2_文风.md', label: '1.2_文风.md' },
+        ],
+      },
+    });
+
+    const proposalActions = screen.getByRole('group', { name: '当前提案操作' });
+    expect(proposalActions).toHaveTextContent('待确认提案 v1 · 提案包 · 2 个文件');
+    expect(proposalActions).not.toHaveTextContent('待确认提案 v1 · 提案包 · 2 个文件 · 2 个文件');
+  });
+
+  it('opens an inline revision confirmation inside the assistant message', () => {
+    const onProposalAction = vi.fn();
+
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
+      chatInput: '改一下：不要源血设定',
+      onSubmit: (event) => event.preventDefault(),
+      onProposalAction,
+      writeTargetHint: {
+        activeDocumentPath: null,
+        strictWorkflowWrites: [],
+        chatAllowedWrites: [],
+        hasPendingProposal: true,
+      },
+      pendingProposal: {
+        id: 'proposal-revise',
+        version: 2,
+        status: 'pending',
+        title: '金手指设定',
+        kind: 'single-file',
+        proposedWrites: [{ path: '2-设定/2.3_金手指设定.md', label: '2.3_金手指设定.md' }],
+      },
+    });
+
+    fireEvent.submit(screen.getByRole('button', { name: '发送' }).closest('form')!);
+
+    expect(screen.getByRole('group', { name: '修改当前提案？' })).toBeInTheDocument();
+    expect(screen.getByText('当前提案 v2 不会写入。')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '生成新版提案' }));
+
+    expect(onProposalAction).toHaveBeenCalledWith({
+      type: 'revise',
+      proposalId: 'proposal-revise',
+      instructions: '改一下：不要源血设定',
+    });
+  });
+
+  it('opens an inline discard confirmation inside the assistant message', () => {
+    const onProposalAction = vi.fn();
+
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这是待确认提案。' }],
+      chatInput: '放弃这个提案',
+      onSubmit: (event) => event.preventDefault(),
+      onProposalAction,
+      writeTargetHint: {
+        activeDocumentPath: null,
+        strictWorkflowWrites: [],
+        chatAllowedWrites: [],
+        hasPendingProposal: true,
+      },
+      pendingProposal: {
+        id: 'proposal-discard',
+        version: 1,
+        status: 'pending',
+        title: '创意脑暴',
+        kind: 'single-file',
+        proposedWrites: [{ path: '2-设定/2.1_创意脑暴.md', label: '2.1_创意脑暴.md' }],
+      },
+    });
+
+    fireEvent.submit(screen.getByRole('button', { name: '发送' }).closest('form')!);
+
+    expect(screen.getByRole('group', { name: '放弃当前提案？' })).toBeInTheDocument();
+    expect(screen.getByText('项目文件不会变化。')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '确认放弃提案' }));
+
+    expect(onProposalAction).toHaveBeenCalledWith({
+      type: 'discard',
+      proposalId: 'proposal-discard',
+    });
   });
 
   it('places upload and icon-only send controls inside the composer frame', () => {
@@ -640,6 +840,25 @@ describe('ChatPanel', () => {
     expect(composerFrame).toContainElement(upload);
     expect(composerFrame).toContainElement(send);
     expect(send).not.toHaveTextContent('发送');
+  });
+
+  it('keeps the composer compact when there is no advisory text', () => {
+    renderChatPanel({
+      chatInput: '继续讨论',
+      turnStrategy: {
+        requestMode: 'auto',
+        hintText: null,
+        treatAsApproval: false,
+        showsWriteTargetHint: false,
+      },
+    });
+
+    expect(screen.queryByText('交给创作助手判断')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-chat-surface="composer-advisory"]')).not.toBeInTheDocument();
+    expect(readRuleProperty("[data-ui-surface='chat-panel'] [data-chat-surface='composer']", 'row-gap')).toBe('8px');
+    expect(readRuleProperty("[data-ui-surface='chat-panel'] [data-chat-surface='composer-shell']", 'padding')).toBe(
+      '8px var(--ui-assistant-log-padding-inline) 12px',
+    );
   });
 
   it('keeps the attachment trigger visible in compact form and hides the strip until attachments exist', () => {
@@ -685,6 +904,23 @@ describe('ChatPanel', () => {
     expect(restingHeight).toBe(resolvedContractMinHeightValue);
     expect(grownHeight).toBeGreaterThan(restingHeight);
     expect(grownHeight).toBeGreaterThan(resolvedContractMinHeightValue);
+  });
+
+  it('uses the same compact type size for composer input and message body text', () => {
+    const inputSelector = "[data-ui-surface='chat-panel'] [data-chat-surface='composer-shell'] [data-chat-surface='input']";
+    const messageSelector = "[data-ui-surface='chat-panel'] [data-chat-surface='message-content']";
+
+    renderChatPanel({
+      messages: [{ role: 'assistant', content: '这一行是对话正文' }],
+      chatInput: '输入框文字',
+    });
+
+    expect(screen.getByLabelText('聊天输入框')).toHaveAttribute('data-chat-surface', 'input');
+    expect(document.querySelector('[data-chat-surface="message-content"]')).toHaveTextContent('这一行是对话正文');
+    expect(readRuleProperty(inputSelector, 'font-size')).toBe('14px');
+    expect(readRuleProperty(inputSelector, 'line-height')).toBe('24px');
+    expect(readRuleProperty(messageSelector, 'font-size')).toBe('14px');
+    expect(readRuleProperty(messageSelector, 'line-height')).toBe('24px');
   });
 
   it('still exposes recovery controls when a chat error is present', () => {

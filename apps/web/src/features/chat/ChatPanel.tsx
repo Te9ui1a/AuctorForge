@@ -1,5 +1,5 @@
-import { type ComponentPropsWithoutRef, useLayoutEffect, useRef } from 'react';
-import { MessageSquareText, Paperclip, RefreshCcw, SendHorizontal, Settings2 } from 'lucide-react';
+import { type ComponentPropsWithoutRef, type FormEvent, useLayoutEffect, useRef, useState } from 'react';
+import { Check, MessageSquareText, Paperclip, Pencil, RefreshCcw, SendHorizontal, Settings2, Undo2, X } from 'lucide-react';
 
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -7,8 +7,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import type { ChatTurnStrategy } from './chatTurnStrategy';
 import type { ChatGenerationProgress, ChatGenerationProgressPhase } from './useChatStream';
-import type { PendingProposal } from '../workflow/types';
-import type { ChatAttachment, ChatMessage, WriteTargetHint } from '../workflow/types';
+import type { ChatAttachment, ChatMessage, PendingProposal, ProposalAction, WriteTargetHint } from '../workflow/types';
 
 type MessageKeySlot = {
   key: string;
@@ -97,7 +96,11 @@ type ChatPanelProps = {
   proposalTargets?: PendingProposal['proposedWrites'];
   onRetryChat?: () => void;
   onOpenSettings?: () => void;
+  pendingProposal?: PendingProposal | null;
+  onProposalAction?: (action: ProposalAction) => void;
 };
+
+type ProposalDecision = 'approve' | 'revise' | 'discard' | null;
 
 export function ChatPanel({
   messages,
@@ -117,11 +120,14 @@ export function ChatPanel({
   proposalTargets = [],
   onRetryChat,
   onOpenSettings,
+  pendingProposal,
+  onProposalAction,
 }: ChatPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageKeySlotsRef = useRef<MessageKeySlot[]>([]);
   const nextMessageSlotKeyRef = useRef(0);
+  const [proposalDecision, setProposalDecision] = useState<ProposalDecision>(null);
 
   useLayoutEffect(() => {
     const element = textareaRef.current;
@@ -150,7 +156,8 @@ export function ChatPanel({
 
   const hasPendingProposal = Boolean(writeTargetHint?.hasPendingProposal);
   const canSubmitMessage = chatInput.trim().length > 0 || attachments.length > 0;
-  const proposalTargetPath = hasPendingProposal ? proposalTargets[0]?.path ?? '' : '';
+  const normalizedProposalWrites = pendingProposal?.proposedWrites ?? proposalTargets;
+  const proposalTargetPath = hasPendingProposal ? normalizedProposalWrites[0]?.path ?? '' : '';
   const activeWritingPath = proposalTargetPath
     || writeTargetHint?.activeDocumentPath
     || writeTargetHint?.strictWorkflowWrites[0]
@@ -158,7 +165,8 @@ export function ChatPanel({
     || '';
   const activeWritingLabel = activeWritingPath ? activeWritingPath.split('/').pop() ?? activeWritingPath : '当前稿件';
   const hasActiveDocument = activeWritingPath.length > 0;
-  const proposalTargetLabel = proposalTargetPath ? proposalTargetPath.split('/').pop() ?? proposalTargetPath : '当前提案';
+  const proposalTargetLabel = pendingProposal?.title
+    ?? (proposalTargetPath ? proposalTargetPath.split('/').pop() ?? proposalTargetPath : '当前提案');
   const chatContextState = hasPendingProposal
     ? 'proposal-pending'
     : activeWritingPath
@@ -190,7 +198,9 @@ export function ChatPanel({
   }
 
   const headerContextText = hasPendingProposal || !hasActiveDocument ? '' : activeWritingLabel;
-  const proposalNoticeText = hasPendingProposal ? `先确认提案：${proposalTargetLabel}` : '';
+  const proposalNoticeText = hasPendingProposal
+    ? `待确认提案${pendingProposal?.version ? ` v${pendingProposal.version}` : ''}：${proposalTargetLabel} · 尚未写入`
+    : '';
   const composerAdvisoryText = hasPendingProposal
     ? '先确认当前提案，再继续推进。'
     : turnStrategy?.showsWriteTargetHint && writeHintText
@@ -241,6 +251,300 @@ export function ChatPanel({
   });
 
   messageKeySlotsRef.current = currentMessageKeySlots;
+
+  function handleComposerSubmit(event: FormEvent<HTMLFormElement>) {
+    if (hasPendingProposal && pendingProposal?.id) {
+      if (isApprovalIntent(chatInput)) {
+        event.preventDefault();
+        setProposalDecision('approve');
+        return;
+      }
+
+      if (isDiscardIntent(chatInput)) {
+        event.preventDefault();
+        setProposalDecision('discard');
+        return;
+      }
+
+      if (isRevisionIntent(chatInput)) {
+        event.preventDefault();
+        setProposalDecision('revise');
+        return;
+      }
+    }
+
+    onSubmit(event);
+  }
+
+  const proposalFileCount = normalizedProposalWrites.length;
+  const proposalFileCountLabel = `${proposalFileCount} 个文件`;
+  const shouldShowProposalFileCount = proposalFileCount > 0 && !proposalTargetLabel.includes(proposalFileCountLabel);
+  const confirmWriteLabel = proposalFileCount > 1 ? `确认写入 ${proposalFileCount} 个文件` : '确认写入当前提案';
+  const canSubmitRevision = chatInput.trim().length > 0;
+
+  function renderProposalDecisionInline() {
+    if (!pendingProposal?.id || proposalDecision === null) {
+      return null;
+    }
+
+    if (proposalDecision === 'approve') {
+      return (
+        <div
+          role="group"
+          aria-label="确认写入提案？"
+          className="mt-2 space-y-2 rounded-[var(--radius-sm)] border border-[color:var(--ui-assistant-chip-border)] bg-[color:var(--ui-assistant-chip-surface)] px-3 py-2 text-xs text-foreground"
+          data-chat-surface="proposal-decision-inline"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+            <strong className="text-xs font-semibold text-foreground">确认写入提案？</strong>
+            <span>{proposalTargetLabel}</span>
+            {shouldShowProposalFileCount ? <span>{proposalFileCountLabel}</span> : null}
+          </div>
+          <p className="m-0 leading-5 text-muted-foreground">
+            提案 v{pendingProposal.version ?? 1}，尚未写入
+          </p>
+          {pendingProposal.transitionPreview?.afterApproveLabel ? (
+            <p className="m-0 leading-5 text-muted-foreground">
+              确认后进入：{pendingProposal.transitionPreview.afterApproveLabel}
+            </p>
+          ) : null}
+          {proposalFileCount > 1 ? (
+            <ul className="m-0 space-y-1 pl-4 leading-5 text-muted-foreground">
+              {normalizedProposalWrites.map((write) => (
+                <li key={write.path}>{write.path}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  aria-label={confirmWriteLabel}
+                  className="h-8 w-8 rounded-[var(--radius-sm)] shadow-none"
+                  onClick={() => {
+                    onProposalAction?.({
+                      type: 'approve',
+                      proposalId: pendingProposal.id!,
+                    });
+                    setProposalDecision(null);
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{confirmWriteLabel}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="返回查看提案"
+                  className="h-8 w-8 rounded-[var(--radius-sm)]"
+                  onClick={() => setProposalDecision(null)}
+                >
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>返回查看提案</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      );
+    }
+
+    if (proposalDecision === 'revise') {
+      return (
+        <div
+          role="group"
+          aria-label="修改当前提案？"
+          className="mt-2 space-y-2 rounded-[var(--radius-sm)] border border-[color:var(--ui-assistant-chip-border)] bg-[color:var(--ui-assistant-chip-surface)] px-3 py-2 text-xs text-foreground"
+          data-chat-surface="proposal-decision-inline"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+            <strong className="text-xs font-semibold text-foreground">修改当前提案？</strong>
+            <span>{proposalTargetLabel}</span>
+          </div>
+          <p className="m-0 leading-5 text-muted-foreground">
+            当前提案 v{pendingProposal.version ?? 1} 不会写入。
+          </p>
+          <p className="m-0 leading-5 text-muted-foreground">
+            {canSubmitRevision ? '将根据输入框中的修改意见生成新版提案。' : '先在输入框写修改意见。'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {canSubmitRevision ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label="生成新版提案"
+                    className="h-8 w-8 rounded-[var(--radius-sm)] shadow-none"
+                    onClick={() => {
+                      onProposalAction?.({
+                        type: 'revise',
+                        proposalId: pendingProposal.id!,
+                        instructions: chatInput.trim(),
+                      });
+                      setProposalDecision(null);
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>生成新版提案</TooltipContent>
+              </Tooltip>
+            ) : null}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="继续编辑修改意见"
+                  className="h-8 w-8 rounded-[var(--radius-sm)]"
+                  onClick={() => setProposalDecision(null)}
+                >
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>继续编辑</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        role="group"
+        aria-label="放弃当前提案？"
+        className="mt-2 space-y-2 rounded-[var(--radius-sm)] border border-[color:var(--ui-assistant-chip-border)] bg-[color:var(--ui-assistant-chip-surface)] px-3 py-2 text-xs text-foreground"
+        data-chat-surface="proposal-decision-inline"
+      >
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+          <strong className="text-xs font-semibold text-foreground">放弃当前提案？</strong>
+          <span>{proposalTargetLabel}</span>
+        </div>
+        <p className="m-0 leading-5 text-muted-foreground">项目文件不会变化。</p>
+        <p className="m-0 leading-5 text-muted-foreground">放弃后可以继续对话并重新生成提案。</p>
+        <div className="flex flex-wrap gap-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                aria-label="确认放弃提案"
+                className="h-8 w-8 rounded-[var(--radius-sm)] shadow-none"
+                onClick={() => {
+                  onProposalAction?.({
+                    type: 'discard',
+                    proposalId: pendingProposal.id!,
+                  });
+                  setProposalDecision(null);
+                }}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>确认放弃提案</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="保留提案"
+                className="h-8 w-8 rounded-[var(--radius-sm)]"
+                onClick={() => setProposalDecision(null)}
+              >
+                <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>保留提案</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProposalActionsForMessage(index: number, role: ChatMessage['role']) {
+    if (role !== 'assistant' || index !== lastAssistantMessageIndex || !hasPendingProposal || !pendingProposal?.id) {
+      return null;
+    }
+
+    return (
+      <div
+        role="group"
+        aria-label="当前提案操作"
+        className="mt-3 max-w-full space-y-2 rounded-[var(--radius-sm)] border border-[color:var(--ui-assistant-chip-border)] bg-[color:var(--ui-assistant-chip-surface)] px-3 py-2"
+        data-chat-surface="proposal-message-actions"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-xs leading-5 text-muted-foreground">
+            待确认提案 v{pendingProposal.version ?? 1} · {proposalTargetLabel}
+            {shouldShowProposalFileCount ? ` · ${proposalFileCountLabel}` : ''}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="确认写入提案"
+                  disabled={isBusy}
+                  className="h-7 w-7 rounded-[var(--radius-sm)] shadow-none"
+                  onClick={() => setProposalDecision('approve')}
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>确认写入</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="修改提案"
+                  disabled={isBusy}
+                  className="h-7 w-7 rounded-[var(--radius-sm)] shadow-none"
+                  onClick={() => setProposalDecision('revise')}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>修改提案</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="放弃提案"
+                  disabled={isBusy}
+                  className="h-7 w-7 rounded-[var(--radius-sm)] shadow-none"
+                  onClick={() => setProposalDecision('discard')}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>放弃提案</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        {renderProposalDecisionInline()}
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={180}>
@@ -300,7 +604,7 @@ export function ChatPanel({
                 <strong className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-assistant-caption)]">
                   {message.role === 'assistant' ? '创作助手' : '你'}
                 </strong>
-                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{message.content}</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground" data-chat-surface="message-content">{message.content}</p>
                 {message.attachments?.length ? (
                   <div className="flex flex-wrap gap-2">
                     {message.attachments.map((attachment) => (
@@ -315,6 +619,7 @@ export function ChatPanel({
                     <span>思考 {(message.thinkingDuration / 1000).toFixed(1)}s</span>
                   </div>
                 ) : null}
+                {renderProposalActionsForMessage(index, message.role)}
               </article>
             ))}
             {assistantStatus === 'thinking' ? (
@@ -375,7 +680,7 @@ export function ChatPanel({
           <form
             className="chat-composer-shell border-t border-[color:var(--ui-assistant-divider)] bg-[image:var(--ui-assistant-composer-surface)] px-4 pb-4 pt-3"
             data-chat-surface="composer-shell"
-            onSubmit={onSubmit}
+            onSubmit={handleComposerSubmit}
           >
             <div className="space-y-3" data-chat-surface="composer">
               {attachments.length > 0 ? (
@@ -498,4 +803,16 @@ export function ChatPanel({
       </aside>
     </TooltipProvider>
   );
+}
+
+function isApprovalIntent(message: string) {
+  return /(^\s*(确认|同意|批准|写入)(?:写入)?(?:当前提案|这个提案|这些内容)?(?=$|[\s，。,！!]))|(满意.{0,8}确认|没问题|可以写入|确认.{0,8}写入|就这样|就这样吧)/u.test(message.trim());
+}
+
+function isRevisionIntent(message: string) {
+  return /(^\s*(改一下|修改|调整|重写|重新生成|重新来过)(?=$|[\s:：，。,！!]))|(不要.{0,12}写入|先别写入|换个版本|生成新版)/u.test(message.trim());
+}
+
+function isDiscardIntent(message: string) {
+  return /(^\s*(放弃|取消|丢弃|作废)(?=$|[\s，。,！!]))|(不要了|这个提案不要|放弃这个提案|取消这个提案|作废当前提案)/u.test(message.trim());
 }

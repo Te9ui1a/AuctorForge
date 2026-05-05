@@ -14,7 +14,7 @@ export type ChatTurnStrategy = {
   treatAsApproval: boolean;
 };
 
-const APPROVAL_PATTERN = /^\s*(确认|同意|批准|写入)(?=$|[\s，。,！!])/u;
+const APPROVAL_PATTERN = /(^\s*(确认|同意|批准|写入)(?:写入)?(?:当前提案|这个提案|这些内容)?(?=$|[\s，。,！!]))|(满意.{0,8}确认|没问题|可以写入|确认.{0,8}写入|就这样|就这样吧)/u;
 
 export function deriveChatTurnStrategy({ forceDiscussion = false, message, session, writeTargetHint }: ChatTurnStrategyInput): ChatTurnStrategy {
   const trimmedMessage = message.trim();
@@ -40,7 +40,7 @@ export function deriveChatTurnStrategy({ forceDiscussion = false, message, sessi
   }
 
   return {
-    hintText: trimmedMessage.length > 0 || writeTargetHint.hasPendingProposal ? '交给创作助手判断' : null,
+    hintText: null,
     requestMode: 'auto',
     showsWriteTargetHint: false,
     treatAsApproval: false,
