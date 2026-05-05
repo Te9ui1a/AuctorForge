@@ -59,6 +59,8 @@ pnpm dev:web
 
 更详细步骤见 [快速开始](docs/quick-start.md)。
 
+如果你想先从作者视角了解怎么试用，请看 [AuctorForge 使用说明](docs/user-guide.md)。
+
 ## 常用命令
 
 ```bash
