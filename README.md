@@ -61,6 +61,8 @@ pnpm dev:web
 
 如果你想先从作者视角了解怎么试用，请看 [AuctorForge 使用说明](docs/user-guide.md)。
 
+如果你是创作新手，想从一个灵感开始写到第一章，请看 [小说创作新手教程](docs/beginner-writing-tutorial.md)。
+
 ## 常用命令
 
 ```bash
