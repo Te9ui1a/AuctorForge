@@ -102,6 +102,8 @@ pnpm dev:web     # 启动 Vite Web 应用
 
 代码结构见 [架构概览](docs/architecture.md)。发布说明草稿见 [v0.1.0 发布说明草稿](docs/release-notes-v0.1.0-draft.md)。
 
+想转发或介绍项目，可以使用 [AuctorForge Promotion Kit](docs/promotion-kit.md) 里的项目简介、发帖文案和社区入口建议。
+
 ## 参与贡献
 
 欢迎作者、编辑、工作流设计者和开发者参与。先看 [CONTRIBUTING.md](CONTRIBUTING.md)。
